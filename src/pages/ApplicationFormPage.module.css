@@ -1,0 +1,53 @@
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.formWrap {
+  max-width: 680px;
+}
+
+.field {
+  margin-bottom: 22px;
+}
+
+.field label {
+  display: block;
+  margin-bottom: 8px;
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  margin-bottom: 22px;
+}
+
+.row .field {
+  flex: 1 1 150px;
+  margin-bottom: 0;
+}
+
+.actions {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  border-top: 1px solid var(--border);
+  padding-top: 22px;
+}
+
+.loading {
+  font-size: 14px;
+  color: #8a8a8a;
+}
+
+@media (max-width: 767px) {
+  .actions {
+    flex-direction: column;
+  }
+
+  .actions button {
+    width: 100%;
+  }
+}

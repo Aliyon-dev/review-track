@@ -1,0 +1,82 @@
+.wrap {
+  max-width: 600px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 50%;
+  border: 1px solid #d8d8d8;
+  background: #fff;
+  color: #444;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.name {
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.subtitle {
+  font-size: 13px;
+  color: #8a8a8a;
+}
+
+.metaGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 22px 44px;
+}
+
+.metaLabel {
+  font-size: 11px;
+  color: #a0a0a0;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 5px;
+}
+
+.metaValue {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.logoutSection {
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: 1px solid var(--border);
+}
+
+.logoutBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 16px;
+  border-radius: 5px;
+  border: 1px solid #e2e2e2;
+  background: #fff;
+  color: #1a1a1a;
+  font-size: 13px;
+  font-weight: 500;
+  transition: background 0.15s;
+}
+
+.logoutBtn:hover {
+  background: #f6f6f6;
+}
