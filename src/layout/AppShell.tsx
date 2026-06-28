@@ -27,8 +27,8 @@ export function AppShell({
   const queueCount =
     allApps?.filter((a) => isActiveStatus(a.status)).length ?? 0;
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     navigate('/login');
   };
 

@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
-import { DisabledWithTooltip } from '@/components/DisabledWithTooltip';
+import { canEditApplication, priorityToApi } from '@/api/mappers';
 import { useToast } from '@/context/ToastContext';
 import {
   useCreateApplication,
   useMyApplications,
   useSubmitApplication,
+  useUpdateApplication,
 } from '@/hooks/useApplications';
-import { API_GAP_TOOLTIP } from '@/types/ui';
+import type { ApplicationFormPayload } from '@/types/ui';
 import styles from './ApplicationFormPage.module.css';
 
 interface FormState {
@@ -29,40 +30,43 @@ const emptyForm: FormState = {
   justification: '',
 };
 
+function buildPayload(form: FormState): ApplicationFormPayload {
+  const amount = form.amount.trim();
+  const payload: ApplicationFormPayload = {
+    title: form.title.trim(),
+    description: form.description.trim(),
+  };
+  if (form.type) payload.type = form.type;
+  if (form.priority) payload.priority = priorityToApi(form.priority);
+  if (amount && !Number.isNaN(Number(amount))) payload.amount = Number(amount);
+  if (form.justification.trim()) payload.justification = form.justification.trim();
+  return payload;
+}
+
 export function ApplicationFormPage() {
   const { id } = useParams();
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const { showToast } = useToast();
   const createMutation = useCreateApplication();
+  const updateMutation = useUpdateApplication();
   const submitMutation = useSubmitApplication();
   const { data: myApps } = useMyApplications();
 
   const existing = isEdit ? myApps?.find((a) => a.id === id) : undefined;
 
-  const [form, setForm] = useState<FormState>(() =>
-    existing
-      ? {
-          title: existing.title,
-          type: '',
-          priority: 'Medium',
-          amount: '',
-          description: existing.description,
-          justification: '',
-        }
-      : emptyForm,
-  );
+  const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
 
   useEffect(() => {
     if (existing) {
       setForm({
         title: existing.title,
-        type: '',
-        priority: 'Medium',
-        amount: '',
+        type: existing.type ?? '',
+        priority: existing.priority ?? 'Medium',
+        amount: existing.amount ?? '',
         description: existing.description,
-        justification: '',
+        justification: existing.justification ?? '',
       });
     }
   }, [existing]);
@@ -80,7 +84,8 @@ export function ApplicationFormPage() {
   const validate = (full: boolean) => {
     const e: Partial<Record<string, string>> = {};
     if (!form.title.trim()) e.title = 'Title is required.';
-    if (full || !isEdit) {
+    if (full) {
+      if (!form.type) e.type = 'Select an application type.';
       if (!form.description.trim() || form.description.trim().length < 10) {
         e.description = 'Add a description (at least 10 characters).';
       }
@@ -93,31 +98,43 @@ export function ApplicationFormPage() {
     else navigate('/dashboard');
   };
 
-  const handleCreate = async () => {
-    const e = validate(true);
+  const handleSaveDraft = async () => {
+    const e = validate(false);
     if (Object.keys(e).length) {
       setErrors(e);
-      showToast('error', 'Please fix the highlighted fields');
+      showToast('error', 'Add a title before saving.');
       return;
     }
+    const body = buildPayload(form);
     try {
-      const app = await createMutation.mutateAsync({
-        title: form.title.trim(),
-        description: form.description.trim(),
-      });
-      showToast('success', 'Application created');
-      navigate(`/applications/${app.id}`);
+      if (isEdit && id) {
+        await updateMutation.mutateAsync({ id, body });
+        showToast('success', 'Changes saved');
+        navigate(`/applications/${id}`);
+      } else {
+        const app = await createMutation.mutateAsync(body);
+        showToast('success', 'Draft created');
+        navigate(`/applications/${app.id}`);
+      }
     } catch (err) {
       showToast(
         'error',
-        err instanceof ApiError ? err.message : 'Failed to create',
+        err instanceof ApiError ? err.message : 'Failed to save',
       );
     }
   };
 
   const handleSubmit = async () => {
     if (!id) return;
+    const e = validate(true);
+    if (Object.keys(e).length) {
+      setErrors(e);
+      showToast('error', 'Please fix the highlighted fields');
+      return;
+    }
+    const body = buildPayload(form);
     try {
+      await updateMutation.mutateAsync({ id, body });
       await submitMutation.mutateAsync(id);
       showToast('success', 'Application submitted for review');
       navigate(`/applications/${id}`);
@@ -133,20 +150,27 @@ export function ApplicationFormPage() {
     return <p className={styles.loading}>Application not found.</p>;
   }
 
+  if (isEdit && existing && !canEditApplication(existing.status)) {
+    return (
+      <div className="empty-state">
+        <div className="empty-state-title">This application cannot be edited</div>
+        <button type="button" className="btn-secondary" onClick={goBack}>
+          Go back
+        </button>
+      </div>
+    );
+  }
+
+  const pending =
+    createMutation.isPending ||
+    updateMutation.isPending ||
+    submitMutation.isPending;
+
   return (
     <>
       <button type="button" className="btn-ghost" onClick={goBack}>
         <span className={styles.backBtn}>
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="19" y1="12" x2="5" y2="12" />
             <polyline points="12 19 5 12 12 5" />
           </svg>
@@ -174,7 +198,6 @@ export function ApplicationFormPage() {
             value={form.title}
             onChange={updateField}
             placeholder="e.g. Q3 Resource Allocation"
-            disabled={isEdit}
           />
           {errors.title && (
             <div className="field-error">— {errors.title}</div>
@@ -182,14 +205,13 @@ export function ApplicationFormPage() {
         </div>
 
         <div className={styles.row}>
-          <DisabledWithTooltip block className={styles.field}>
+          <div className={styles.field}>
             <label className="mono-label">Type</label>
             <select
               name="type"
-              className="field-input"
+              className={`field-input ${errors.type ? 'error' : ''}`}
               value={form.type}
               onChange={updateField}
-              disabled
             >
               <option value="">Select a type…</option>
               <option value="General Request">General Request</option>
@@ -198,22 +220,24 @@ export function ApplicationFormPage() {
               <option value="Procurement">Procurement</option>
               <option value="Other">Other</option>
             </select>
-          </DisabledWithTooltip>
-          <DisabledWithTooltip block className={styles.field}>
+            {errors.type && (
+              <div className="field-error">— {errors.type}</div>
+            )}
+          </div>
+          <div className={styles.field}>
             <label className="mono-label">Priority</label>
             <select
               name="priority"
               className="field-input"
               value={form.priority}
               onChange={updateField}
-              disabled
             >
               <option value="Low">Low</option>
               <option value="Medium">Medium</option>
               <option value="High">High</option>
             </select>
-          </DisabledWithTooltip>
-          <DisabledWithTooltip block className={styles.field}>
+          </div>
+          <div className={styles.field}>
             <label className="mono-label">Amount (USD)</label>
             <input
               name="amount"
@@ -221,9 +245,8 @@ export function ApplicationFormPage() {
               value={form.amount}
               onChange={updateField}
               placeholder="optional"
-              disabled
             />
-          </DisabledWithTooltip>
+          </div>
         </div>
 
         <div className={styles.field}>
@@ -235,14 +258,13 @@ export function ApplicationFormPage() {
             value={form.description}
             onChange={updateField}
             placeholder="Describe what you are requesting and why."
-            disabled={isEdit}
           />
           {errors.description && (
             <div className="field-error">— {errors.description}</div>
           )}
         </div>
 
-        <DisabledWithTooltip block className={styles.field}>
+        <div className={styles.field}>
           <label className="mono-label">Justification</label>
           <textarea
             name="justification"
@@ -251,50 +273,39 @@ export function ApplicationFormPage() {
             value={form.justification}
             onChange={updateField}
             placeholder="Optional supporting context for the reviewer."
-            disabled
           />
-        </DisabledWithTooltip>
+        </div>
 
         <div className={styles.actions}>
           <button type="button" className="btn-secondary" onClick={goBack}>
             Cancel
           </button>
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleSaveDraft}
+            disabled={pending}
+          >
+            {isEdit ? 'Save draft' : 'Save draft'}
+          </button>
           {isEdit ? (
-            <>
-              <DisabledWithTooltip>
-                <button type="button" className="btn-secondary" disabled>
-                  Save draft
-                </button>
-              </DisabledWithTooltip>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleSubmit}
-                disabled={
-                  submitMutation.isPending ||
-                  existing?.status !== 'draft' &&
-                    existing?.status !== 'changes_requested'
-                }
-              >
-                {submitMutation.isPending ? 'Submitting…' : 'Submit application'}
-              </button>
-            </>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleSubmit}
+              disabled={pending}
+            >
+              {submitMutation.isPending ? 'Submitting…' : 'Submit application'}
+            </button>
           ) : (
-            <>
-              <DisabledWithTooltip tooltip={API_GAP_TOOLTIP}>
-                <button type="button" className="btn-secondary" disabled>
-                  Save draft
-                </button>
-              </DisabledWithTooltip>
-              <button
-                type="button"
-                className="btn-primary"
-                onClick={handleCreate}
-                disabled={createMutation.isPending}
-              >
-                {createMutation.isPending ? 'Creating…' : 'Create application'}
-              </button>
-            </>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleSaveDraft}
+              disabled={pending}
+            >
+              {createMutation.isPending ? 'Creating…' : 'Create application'}
+            </button>
           )}
         </div>
       </div>

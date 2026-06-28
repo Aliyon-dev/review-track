@@ -2,11 +2,12 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useState,
   type ReactNode,
 } from 'react';
-import { login as apiLogin } from '@/api/client';
+import { getMe, login as apiLogin, logout as apiLogout } from '@/api/client';
 import { mapUser } from '@/api/mappers';
 import {
   clearSession,
@@ -22,7 +23,7 @@ interface AuthContextValue {
   token: string | null;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<UiUser>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -42,6 +43,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UiUser | null>(() => loadUser());
   const [token, setTokenState] = useState<string | null>(() => getToken());
 
+  useEffect(() => {
+    if (!getToken()) return;
+    getMe()
+      .then((apiUser) => {
+        setStoredUser(JSON.stringify(apiUser));
+        setUser(mapUser(apiUser));
+      })
+      .catch(() => {
+        clearSession();
+        setUser(null);
+        setTokenState(null);
+      });
+  }, []);
+
   const login = useCallback(async (email: string, password: string) => {
     const { token: newToken, user: apiUser } = await apiLogin(email, password);
     setToken(newToken);
@@ -52,7 +67,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return uiUser;
   }, []);
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    try {
+      if (getToken()) await apiLogout();
+    } catch {
+      // JWT logout is client-side; ignore server errors
+    }
     clearSession();
     setUser(null);
     setTokenState(null);
