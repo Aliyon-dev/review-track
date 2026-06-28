@@ -1,63 +1,37 @@
+import { Check, X } from 'lucide-react';
 import { useToast } from '@/context/ToastContext';
-import styles from './ToastStack.module.css';
+import { cn } from '@/lib/cn';
 
 export function ToastStack() {
   const { toasts, dismissToast } = useToast();
 
   return (
-    <div className={styles.container}>
+    <div className="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end max-sm:left-4 max-sm:right-4">
       {toasts.map((t) => (
-        <div key={t.id} className={styles.toast}>
-          <span className={styles.icon}>
+        <div
+          key={t.id}
+          className={cn(
+            'flex items-center gap-3 rounded-lg px-4 py-3 text-sm shadow-lg animate-slide-up max-w-sm w-full sm:w-auto border',
+            t.type === 'error'
+              ? 'bg-red-600 text-white border-red-700'
+              : 'bg-brand text-white border-brand-muted',
+          )}
+        >
+          <span className="shrink-0">
             {t.type === 'error' ? (
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="18" y1="6" x2="6" y2="18" />
-                <line x1="6" y1="6" x2="18" y2="18" />
-              </svg>
+              <X className="h-4 w-4" strokeWidth={2.5} />
             ) : (
-              <svg
-                width="15"
-                height="15"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.4"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
+              <Check className="h-4 w-4" strokeWidth={2.5} />
             )}
           </span>
-          <span className={styles.message}>{t.message}</span>
+          <span className="flex-1">{t.message}</span>
           <button
             type="button"
-            className={styles.dismiss}
+            className="shrink-0 text-white/60 hover:text-white"
             onClick={() => dismissToast(t.id)}
             aria-label="Dismiss"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
+            <X className="h-4 w-4" />
           </button>
         </div>
       ))}

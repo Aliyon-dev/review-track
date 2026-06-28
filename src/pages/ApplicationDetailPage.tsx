@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { ArrowLeft, Check } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import {
@@ -7,8 +8,12 @@ import {
   statusNote,
 } from '@/api/mappers';
 import { ActivityTimeline } from '@/components/ActivityTimeline';
-import { ConfirmModal } from '@/components/ConfirmModal';
-import { StatusBadge } from '@/components/StatusBadge';
+import { StatusBadge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Dialog } from '@/components/ui/dialog';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Label, Textarea } from '@/components/ui/field';
+import { SectionCard } from '@/components/ui/section-card';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -22,7 +27,6 @@ import {
   useStartReview,
   useSubmitApplication,
 } from '@/hooks/useApplications';
-import styles from './ApplicationDetailPage.module.css';
 
 type ModalKind =
   | 'approve'
@@ -31,6 +35,51 @@ type ModalKind =
   | 'submit'
   | 'delete'
   | null;
+
+const MODAL_CONFIG: Record<
+  Exclude<ModalKind, null>,
+  {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    showComment?: boolean;
+    commentLabel?: string;
+  }
+> = {
+  approve: {
+    title: 'Approve application?',
+    message: 'The applicant will be notified that their request has been approved.',
+    confirmLabel: 'Approve',
+    showComment: true,
+    commentLabel: 'Add a note (optional)',
+  },
+  reject: {
+    title: 'Reject application?',
+    message: 'The applicant will be notified and the request will be closed.',
+    confirmLabel: 'Reject',
+    showComment: true,
+    commentLabel: 'Reason for rejection',
+  },
+  return: {
+    title: 'Request changes?',
+    message:
+      'The application will be returned to the applicant so they can make edits and resubmit.',
+    confirmLabel: 'Request changes',
+    showComment: true,
+    commentLabel: 'What needs to change?',
+  },
+  submit: {
+    title: 'Submit application?',
+    message:
+      'Once submitted, the application enters the review queue. You can edit it again only if a reviewer requests changes.',
+    confirmLabel: 'Submit',
+  },
+  delete: {
+    title: 'Delete application?',
+    message: 'This draft will be permanently deleted.',
+    confirmLabel: 'Delete',
+  },
+};
 
 export function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -188,17 +237,16 @@ export function ApplicationDetailPage() {
   };
 
   if (isLoading) {
-    return <p className={styles.loading}>Loading…</p>;
+    return <p className="text-sm text-brand/60">Loading…</p>;
   }
 
   if (!app) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-title">Application not found</div>
-        <button type="button" className="btn-secondary" onClick={() => navigate(backPath)}>
-          Go back
-        </button>
-      </div>
+      <EmptyState
+        title="Application not found"
+        actionLabel="Go back"
+        onAction={() => navigate(backPath)}
+      />
     );
   }
 
@@ -208,254 +256,232 @@ export function ApplicationDetailPage() {
       ? fmtDate(app.updatedAt)
       : '—';
 
+  const modalConfig = modal ? MODAL_CONFIG[modal] : null;
+
   return (
     <>
-      <button type="button" className="btn-ghost" onClick={() => navigate(backPath)}>
-        <span className={styles.backBtn}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          Back
-        </span>
+      <button
+        type="button"
+        onClick={() => navigate(backPath)}
+        className="mb-4 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-brand/60 font-mono hover:text-brand transition-colors"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back
       </button>
 
-      <div className={styles.header}>
-        <div className={styles.headerMain}>
-          <div className={styles.idRow}>
-            
+      <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="mb-2">
             <StatusBadge status={app.status} />
           </div>
-          <h1 className={styles.title}>{app.title}</h1>
-          <div className={styles.statusNote}>{statusNote(app.status)}</div>
+          <h1 className="font-serif text-3xl font-semibold tracking-tight text-brand">
+            {app.title}
+          </h1>
+          <p className="mt-1 text-sm text-brand/60">{statusNote(app.status)}</p>
         </div>
 
         {!isReviewer && (
-          <div className={styles.headerActions}>
+          <div className="flex flex-wrap gap-2">
             {app.status === 'draft' && (
-              <button
-                type="button"
-                className="btn-secondary"
+              <Button
+                variant="secondary"
                 onClick={() => setModal('delete')}
                 disabled={deleteMutation.isPending}
               >
                 Delete
-              </button>
+              </Button>
             )}
             {canEditApplication(app.status) && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => navigate('/applications/' + app.id + '/edit')}
+              <Button
+                variant="secondary"
+                onClick={() => navigate(`/applications/${app.id}/edit`)}
               >
                 Edit
-              </button>
+              </Button>
             )}
             {canEditApplication(app.status) && (
-              <button
-                type="button"
-                className="btn-primary"
+              <Button
                 onClick={() => setModal('submit')}
                 disabled={submitMutation.isPending}
               >
                 Submit
-              </button>
+              </Button>
             )}
           </div>
         )}
       </div>
 
-      <div className={styles.columns}>
-        <div className={styles.mainCol}>
-          <div className={styles.sectionLabel}>Details</div>
-          <div className={styles.metaGrid}>
-            <div>
-              <div className={styles.metaLabel}>Type</div>
-              <div className={styles.metaValue}>{app.type ?? '—'}</div>
-            </div>
-            <div>
-              <div className={styles.metaLabel}>Priority</div>
-              <div className={styles.metaValue}>{app.priority ?? '—'}</div>
-            </div>
-            <div>
-              <div className={styles.metaLabel}>Amount</div>
-              <div className={styles.metaValue}>
-                {app.amount ? `$${app.amount}` : '—'}
+      <div className="grid gap-8 lg:grid-cols-[1fr_320px]">
+        <div className="space-y-6">
+          <SectionCard title="Details">
+            <div className="px-5 py-4 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                  Type
+                </div>
+                <div className="text-sm font-medium text-brand">
+                  {app.type ?? '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                  Priority
+                </div>
+                <div className="text-sm font-medium text-brand">
+                  {app.priority ?? '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                  Amount
+                </div>
+                <div className="text-sm font-medium text-brand">
+                  {app.amount ? `$${app.amount}` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                  Applicant
+                </div>
+                <div className="text-sm font-medium text-brand">
+                  {isReviewer
+                    ? (app.applicantName ?? app.applicantId)
+                    : user?.name}
+                </div>
+              </div>
+              <div>
+                <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                  Submitted
+                </div>
+                <div className="text-sm font-medium text-brand font-mono">
+                  {submittedDisplay}
+                </div>
               </div>
             </div>
-            <div>
-              <div className={styles.metaLabel}>Applicant</div>
-              <div className={styles.metaValue}>
-                {isReviewer
-                  ? (app.applicantName ?? app.applicantId)
-                  : user?.name}
-              </div>
+          </SectionCard>
+
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-2">
+              Description
             </div>
-            <div>
-              <div className={styles.metaLabel}>Submitted</div>
-              <div className={styles.metaValue}>{submittedDisplay}</div>
-            </div>
+            <p className="text-sm text-brand/70 leading-relaxed">
+              {app.description}
+            </p>
           </div>
 
-          <div className={styles.textSection}>
-            <div className={styles.metaLabel}>Description</div>
-            <div className={styles.textBody}>{app.description}</div>
-          </div>
-
-          <div className={styles.textSection}>
-            <div className={styles.metaLabel}>Justification</div>
-            <div className={styles.textBody}>
+          <div>
+            <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-2">
+              Justification
+            </div>
+            <p className="text-sm text-brand/70 leading-relaxed">
               {app.justification ?? '—'}
-            </div>
+            </p>
           </div>
 
           {isReviewer && (
-            <div className={styles.commentSection}>
-              <div className={styles.sectionLabel}>Add a comment</div>
-              <textarea
-                className="field-input"
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-3">
+                Add a comment
+              </div>
+              <Label className="sr-only">Comment</Label>
+              <Textarea
                 rows={3}
                 placeholder="Write a comment…"
                 value={commentDraft}
                 onChange={(e) => setCommentDraft(e.target.value)}
-                style={{ marginBottom: 12 }}
+                className="mb-3"
               />
-              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                <button
-                  type="button"
-                  className="btn-secondary"
+              <div className="flex justify-end">
+                <Button
+                  variant="secondary"
                   onClick={handleAddComment}
                   disabled={addCommentMutation.isPending || !commentDraft.trim()}
                 >
                   Add comment
-                </button>
+                </Button>
               </div>
             </div>
           )}
         </div>
 
-        <div className={styles.sideCol}>
+        <div className="space-y-6">
           {isReviewer && reviewerActions && (
-            <div className={styles.reviewerPanel}>
-              <div className={styles.sectionLabel}>Reviewer actions</div>
-              <p className={styles.reviewerHint}>
-                {reviewerActions.canDecide
-                  ? 'Approve, request changes, or reject this application.'
-                  : reviewerActions.canStart
-                    ? 'Start review before approving or rejecting.'
-                    : reviewerActions.resolved
-                      ? 'This application has been resolved.'
-                      : 'No action available for this status.'}
-              </p>
+            <SectionCard title="Reviewer actions">
+              <div className="px-5 py-4">
+                <p className="text-sm text-brand/60 mb-4">
+                  {reviewerActions.canDecide
+                    ? 'Approve, request changes, or reject this application.'
+                    : reviewerActions.canStart
+                      ? 'Start review before approving or rejecting.'
+                      : reviewerActions.resolved
+                        ? 'This application has been resolved.'
+                        : 'No action available for this status.'}
+                </p>
 
-              {reviewerActions.canStart && (
-                <button
-                  type="button"
-                  className={`btn-primary ${styles.fullBtn}`}
-                  onClick={handleStartReview}
-                  disabled={reviewerPending}
-                >
-                  Start review
-                </button>
-              )}
-
-              {reviewerActions.canDecide && (
-                <div className={styles.decideBtns}>
-                  <button
-                    type="button"
-                    className={`btn-primary ${styles.fullBtn}`}
-                    onClick={() => setModal('approve')}
+                {reviewerActions.canStart && (
+                  <Button
+                    className="w-full"
+                    onClick={handleStartReview}
+                    disabled={reviewerPending}
                   >
-                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                    Approve
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.returnBtn}
-                    onClick={() => setModal('return')}
-                  >
-                    Request changes
-                  </button>
-                  <button
-                    type="button"
-                    className={styles.rejectBtn}
-                    onClick={() => setModal('reject')}
-                  >
-                    Reject
-                  </button>
-                </div>
-              )}
-
-              {reviewerActions.resolved &&
-                !reviewerActions.canDecide &&
-                !reviewerActions.canStart && (
-                  <div className={styles.resolved}>No further action required</div>
+                    Start review
+                  </Button>
                 )}
-            </div>
+
+                {reviewerActions.canDecide && (
+                  <div className="flex flex-col gap-2">
+                    <Button className="w-full" onClick={() => setModal('approve')}>
+                      <Check className="h-4 w-4" />
+                      Approve
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      className="w-full"
+                      onClick={() => setModal('return')}
+                    >
+                      Request changes
+                    </Button>
+                    <Button
+                      variant="danger"
+                      className="w-full"
+                      onClick={() => setModal('reject')}
+                    >
+                      Reject
+                    </Button>
+                  </div>
+                )}
+
+                {reviewerActions.resolved &&
+                  !reviewerActions.canDecide &&
+                  !reviewerActions.canStart && (
+                    <p className="text-sm text-brand/40 text-center py-2">
+                      No further action required
+                    </p>
+                  )}
+              </div>
+            </SectionCard>
           )}
 
-          <div className={styles.sectionLabel}>Activity</div>
-          <ActivityTimeline events={events} />
+          <SectionCard title="Activity">
+            <div className="px-5 py-4">
+              <ActivityTimeline events={events} />
+            </div>
+          </SectionCard>
         </div>
       </div>
 
-      {modal === 'approve' && (
-        <ConfirmModal
-          title="Approve application?"
-          message="The applicant will be notified that their request has been approved."
-          confirmLabel="Approve"
-          showComment
-          commentLabel="Add a note (optional)"
+      {modalConfig && (
+        <Dialog
+          open={Boolean(modal)}
+          onClose={() => setModal(null)}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          confirmLabel={modalConfig.confirmLabel}
+          showComment={modalConfig.showComment}
+          commentLabel={modalConfig.commentLabel}
           comment={modalComment}
           onCommentChange={setModalComment}
           onConfirm={confirmModal}
-          onCancel={() => setModal(null)}
-        />
-      )}
-      {modal === 'reject' && (
-        <ConfirmModal
-          title="Reject application?"
-          message="The applicant will be notified and the request will be closed."
-          confirmLabel="Reject"
-          showComment
-          commentLabel="Reason for rejection"
-          comment={modalComment}
-          onCommentChange={setModalComment}
-          onConfirm={confirmModal}
-          onCancel={() => setModal(null)}
-        />
-      )}
-      {modal === 'return' && (
-        <ConfirmModal
-          title="Request changes?"
-          message="The application will be returned to the applicant so they can make edits and resubmit."
-          confirmLabel="Request changes"
-          showComment
-          commentLabel="What needs to change?"
-          comment={modalComment}
-          onCommentChange={setModalComment}
-          onConfirm={confirmModal}
-          onCancel={() => setModal(null)}
-        />
-      )}
-      {modal === 'submit' && (
-        <ConfirmModal
-          title="Submit application?"
-          message="Once submitted, the application enters the review queue. You can edit it again only if a reviewer requests changes."
-          confirmLabel="Submit"
-          onConfirm={confirmModal}
-          onCancel={() => setModal(null)}
-        />
-      )}
-      {modal === 'delete' && (
-        <ConfirmModal
-          title="Delete application?"
-          message="This draft will be permanently deleted."
-          confirmLabel="Delete"
-          onConfirm={confirmModal}
-          onCancel={() => setModal(null)}
         />
       )}
     </>

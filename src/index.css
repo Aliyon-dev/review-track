@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-serif: 'Playfair Display', Georgia, serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
+
+  --color-brand: #1a302a;
+  --color-brand-hover: #152622;
+  --color-brand-muted: #e9f0e9;
+  --color-canvas: #f9f9f7;
+  --color-sidebar: #f4f4f2;
+  --color-tan: #f5ebe0;
+  --color-tan-text: #6b5344;
+
+  --color-primary: #1a302a;
+  --color-primary-hover: #152622;
+  --color-surface: #ffffff;
+  --color-muted: #6b5344;
+
+  --radius-card: 0.75rem;
+  --radius-button: 0.5rem;
+
+  --animate-fade-in: fade-in 0.2s ease-out;
+  --animate-slide-up: slide-up 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@layer base {
+  html,
+  body {
+    @apply m-0 antialiased;
+  }
+
+  body {
+    @apply bg-canvas text-brand font-sans;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font-family: inherit;
+  }
+
+  ::placeholder {
+    @apply text-brand/40;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #c5cfc5;
+    border-radius: 8px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+}

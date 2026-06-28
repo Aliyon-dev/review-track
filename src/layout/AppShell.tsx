@@ -1,8 +1,19 @@
 import { NavLink, useNavigate } from 'react-router-dom';
+import {
+  Check,
+  ChevronDown,
+  LayoutGrid,
+  LogOut,
+  Menu,
+  Plus,
+  ShoppingBag,
+  User,
+} from 'lucide-react';
 import { initials, isActiveStatus } from '@/api/mappers';
+import { Avatar } from '@/components/ui/avatar';
+import { cn } from '@/lib/cn';
 import { useAuth } from '@/context/AuthContext';
 import { useReviewerApplications } from '@/hooks/useApplications';
-import styles from './AppShell.module.css';
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -10,6 +21,41 @@ interface AppShellProps {
   mobileNavOpen: boolean;
   onMobileNavToggle: () => void;
   onMobileNavClose: () => void;
+}
+
+function NavItem({
+  to,
+  icon: Icon,
+  label,
+  badge,
+  onClick,
+}: {
+  to: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  badge?: number;
+  onClick?: () => void;
+}) {
+  return (
+    <NavLink
+      to={to}
+      onClick={onClick}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors',
+          isActive
+            ? 'bg-brand-muted text-brand'
+            : 'text-brand/60 hover:bg-brand-muted/50 hover:text-brand',
+        )
+      }
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="flex-1">{label}</span>
+      {badge !== undefined && (
+        <span className="font-mono text-xs text-brand/40">{badge}</span>
+      )}
+    </NavLink>
+  );
 }
 
 export function AppShell({
@@ -35,243 +81,120 @@ export function AppShell({
   if (!user) return null;
 
   return (
-    <div className={styles.shell}>
+    <div className="min-h-screen bg-canvas lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       {mobileNavOpen && (
-        <div className={styles.overlay} onClick={onMobileNavClose} />
+        <div
+          className="fixed inset-0 z-30 bg-brand/40 lg:hidden"
+          onClick={onMobileNavClose}
+        />
       )}
 
       <aside
-        className={`${styles.sidebar} ${mobileNavOpen ? styles.sidebarOpen : ''}`}
+        className={cn(
+          'fixed inset-y-0 left-0 z-40 flex w-[240px] flex-col border-r border-brand/10 bg-sidebar px-3 py-5 transition-transform lg:sticky lg:top-0 lg:h-screen lg:translate-x-0',
+          mobileNavOpen ? 'translate-x-0' : '-translate-x-full',
+        )}
       >
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
-            <svg
-              width="13"
-              height="13"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+        <div className="flex items-center gap-2.5 px-2 pb-6">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white shadow-sm">
+            <Check className="h-4 w-4" strokeWidth={2.5} />
           </div>
-          <span className={styles.brandName}>ApprovalFlow</span>
+          <span className="text-[15px] font-semibold tracking-tight text-brand">
+            ApprovalFlow
+          </span>
         </div>
 
-        <div className={styles.menuLabel}>Menu</div>
-        <nav className={styles.nav}>
+        <p className="px-3 pb-2 text-[10px] font-medium uppercase tracking-widest text-brand/40 font-mono">
+          Menu
+        </p>
+        <nav className="flex flex-col gap-0.5">
           {isApplicant && (
             <>
-              <NavLink
+              <NavItem
                 to="/dashboard"
-                className={({ isActive }) =>
-                  `${styles.navLink} ${isActive ? styles.navActive : ''}`
-                }
+                icon={LayoutGrid}
+                label="Dashboard"
                 onClick={onMobileNavClose}
-              >
-                <NavIconDashboard />
-                Dashboard
-              </NavLink>
-              <NavLink
+              />
+              <NavItem
                 to="/applications/new"
-                className={({ isActive }) =>
-                  `${styles.navLink} ${isActive ? styles.navActive : ''}`
-                }
+                icon={Plus}
+                label="New application"
                 onClick={onMobileNavClose}
-              >
-                <NavIconPlus />
-                New application
-              </NavLink>
+              />
             </>
           )}
           {!isApplicant && (
-            <NavLink
+            <NavItem
               to="/queue"
-              className={({ isActive }) =>
-                `${styles.navLink} ${isActive ? styles.navActive : ''}`
-              }
+              icon={ShoppingBag}
+              label="Review queue"
+              badge={queueCount}
               onClick={onMobileNavClose}
-            >
-              <NavIconQueue />
-              Review queue
-              <span className={styles.badge}>{queueCount}</span>
-            </NavLink>
+            />
           )}
-          <NavLink
+          <NavItem
             to="/profile"
-            className={({ isActive }) =>
-              `${styles.navLink} ${isActive ? styles.navActive : ''}`
-            }
+            icon={User}
+            label="Profile"
             onClick={onMobileNavClose}
-          >
-            <NavIconProfile />
-            Profile
-          </NavLink>
+          />
         </nav>
 
-        <div className={styles.userSection}>
-          <div className={styles.userRow}>
-            <div className={styles.avatar}>{initials(user.name)}</div>
-            <div className={styles.userInfo}>
-              <div className={styles.userName}>{user.name}</div>
-              <div className={styles.userRole}>
-                {isApplicant ? 'Applicant' : 'Reviewer'}
+        <div className="relative mt-auto">
+          <div
+            className="pointer-events-none absolute -bottom-2 -left-4 h-32 w-32 rounded-full bg-brand-muted/60 blur-2xl"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute bottom-8 -left-8 h-24 w-24 rounded-full bg-tan/40 blur-xl"
+            aria-hidden
+          />
+
+          <div className="relative border-t border-brand/10 pt-4">
+            <div className="flex items-center gap-2.5 px-2">
+              <Avatar size="md">{initials(user.name)}</Avatar>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-brand">
+                  {user.name}
+                </div>
+                <div className="text-xs text-brand/50 font-mono">
+                  {isApplicant ? 'Applicant' : 'Reviewer'}
+                </div>
               </div>
-            </div>
-            <button
-              type="button"
-              className={styles.logoutBtn}
-              title="Sign out"
-              onClick={handleLogout}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+              <button
+                type="button"
+                title="Sign out"
+                onClick={handleLogout}
+                className="rounded-lg p-1.5 text-brand/40 hover:bg-brand-muted hover:text-brand transition-colors"
               >
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <polyline points="16 17 21 12 16 7" />
-                <line x1="21" y1="12" x2="9" y2="12" />
-              </svg>
-            </button>
+                <LogOut className="h-4 w-4" />
+              </button>
+              <ChevronDown className="h-4 w-4 text-brand/30 shrink-0" />
+            </div>
           </div>
         </div>
       </aside>
 
-      <main className={styles.main}>
-        <header className={styles.topBar}>
-          <div className={styles.topLeft}>
-            <button
-              type="button"
-              className={styles.menuBtn}
-              onClick={onMobileNavToggle}
-              aria-label="Toggle menu"
-            >
-              <svg
-                width="20"
-                height="20"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              >
-                <line x1="4" y1="6" x2="20" y2="6" />
-                <line x1="4" y1="12" x2="20" y2="12" />
-                <line x1="4" y1="18" x2="20" y2="18" />
-              </svg>
-            </button>
-            <div className={styles.crumb}>{breadcrumb}</div>
-          </div>
-          {isApplicant && (
-            <button
-              type="button"
-              className={styles.newBtn}
-              onClick={() => navigate('/applications/new')}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <line x1="12" y1="5" x2="12" y2="19" />
-                <line x1="5" y1="12" x2="19" y2="12" />
-              </svg>
-              <span>New application</span>
-            </button>
-          )}
+      <main className="min-w-0 flex flex-col min-h-screen bg-canvas">
+        <header className="sticky top-0 z-10 flex h-14 items-center border-b border-brand/10 bg-canvas/90 px-4 backdrop-blur-sm lg:px-8">
+          <button
+            type="button"
+            className="rounded-lg p-2 text-brand/60 hover:bg-brand-muted lg:hidden"
+            onClick={onMobileNavToggle}
+            aria-label="Toggle menu"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <span className="text-xs font-medium uppercase tracking-wider text-brand/40 font-mono lg:ml-0 ml-3">
+            {breadcrumb}
+          </span>
         </header>
-        <div className={styles.content}>
-          <div className={styles.contentInner}>{children}</div>
+
+        <div className="flex-1 px-4 py-8 lg:px-8">
+          <div className="mx-auto max-w-6xl">{children}</div>
         </div>
       </main>
     </div>
-  );
-}
-
-function NavIconDashboard() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <rect x="3" y="3" width="7" height="7" />
-      <rect x="14" y="3" width="7" height="7" />
-      <rect x="14" y="14" width="7" height="7" />
-      <rect x="3" y="14" width="7" height="7" />
-    </svg>
-  );
-}
-
-function NavIconPlus() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <line x1="12" y1="5" x2="12" y2="19" />
-      <line x1="5" y1="12" x2="19" y2="12" />
-    </svg>
-  );
-}
-
-function NavIconQueue() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <polyline points="22 12 16 12 14 15 10 15 8 12 2 12" />
-      <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z" />
-    </svg>
-  );
-}
-
-function NavIconProfile() {
-  return (
-    <svg
-      width="16"
-      height="16"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="7" r="4" />
-    </svg>
   );
 }
