@@ -51,7 +51,6 @@ export function DashboardPage() {
           <table className="data-table">
             <thead>
               <tr>
-                <th>ID</th>
                 <th>Title</th>
                 <th>Status</th>
                 <th>Updated</th>
@@ -64,15 +63,6 @@ export function DashboardPage() {
                   key={app.id}
                   onClick={() => navigate(`/applications/${app.id}`)}
                 >
-                  <td
-                    style={{
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '12.5px',
-                      color: '#8a8a8a',
-                    }}
-                  >
-                    {app.id}
-                  </td>
                   <td style={{ fontWeight: 500, color: '#141414' }}>
                     {app.title}
                   </td>
