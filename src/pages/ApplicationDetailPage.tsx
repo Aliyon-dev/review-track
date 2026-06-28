@@ -223,7 +223,7 @@ export function ApplicationDetailPage() {
       <div className={styles.header}>
         <div className={styles.headerMain}>
           <div className={styles.idRow}>
-            <span className={styles.id}>{app.id}</span>
+            
             <StatusBadge status={app.status} />
           </div>
           <h1 className={styles.title}>{app.title}</h1>
