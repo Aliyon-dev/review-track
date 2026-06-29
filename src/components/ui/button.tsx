@@ -1,3 +1,4 @@
+import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/cn';
 
 const variants = {
@@ -20,6 +21,7 @@ const sizes = {
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: keyof typeof variants;
   size?: keyof typeof sizes;
+  loading?: boolean;
 }
 
 export function Button({
@@ -27,6 +29,8 @@ export function Button({
   variant = 'primary',
   size = 'md',
   disabled,
+  loading,
+  children,
   ...props
 }: ButtonProps) {
   return (
@@ -37,8 +41,11 @@ export function Button({
         sizes[size],
         className,
       )}
-      disabled={disabled}
+      disabled={disabled || loading}
       {...props}
-    />
+    >
+      {loading && <Loader2 className="h-4 w-4 animate-spin shrink-0" />}
+      {children}
+    </button>
   );
 }

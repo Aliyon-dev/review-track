@@ -14,7 +14,7 @@ const BREADCRUMBS: Record<string, string> = {
 function getBreadcrumb(pathname: string): string {
   if (pathname.match(/^\/applications\/[^/]+\/edit$/)) return 'Edit application';
   if (pathname.match(/^\/applications\/[^/]+$/)) return 'Application detail';
-  return BREADCRUMBS[pathname] ?? 'ApprovalFlow';
+  return BREADCRUMBS[pathname] ?? 'ReviewTrack';
 }
 
 export function ProtectedLayout({ role }: { role?: UiRole }) {

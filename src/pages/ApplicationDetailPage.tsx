@@ -14,6 +14,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Label, Textarea } from '@/components/ui/field';
 import { SectionCard } from '@/components/ui/section-card';
+import { DetailPageSkeleton } from '@/components/ui/skeleton';
+import { useSubmitLock } from '@/lib/use-submit-lock';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -86,6 +88,7 @@ export function ApplicationDetailPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { showToast } = useToast();
+  const runLocked = useSubmitLock();
   const isReviewer = user?.role === 'reviewer';
 
   const { data: app, isLoading } = useApplication(id, true, isReviewer);
@@ -153,41 +156,45 @@ export function ApplicationDetailPage() {
 
   const handleStartReview = () => {
     if (!id) return;
-    runReviewerAction(
-      () => startReviewMutation.mutateAsync(id),
-      'Review started',
-      'Failed to start review',
-    );
+    runLocked(async () => {
+      await runReviewerAction(
+        () => startReviewMutation.mutateAsync(id),
+        'Review started',
+        'Failed to start review',
+      );
+    });
   };
 
   const confirmModal = () => {
-    if (!modal || !id) return;
-    if (modal === 'approve') {
-      runReviewerAction(
-        () => approveMutation.mutateAsync(id),
-        'Application approved',
-        'Failed to approve application',
-        true,
-      );
-    }
-    if (modal === 'reject') {
-      runReviewerAction(
-        () => rejectMutation.mutateAsync(id),
-        'Application rejected',
-        'Failed to reject application',
-        true,
-      );
-    }
-    if (modal === 'return') {
-      runReviewerAction(
-        () => returnMutation.mutateAsync(id),
-        'Changes requested',
-        'Failed to request changes',
-        true,
-      );
-    }
-    if (modal === 'submit') handleSubmit();
-    if (modal === 'delete') handleDelete();
+    runLocked(async () => {
+      if (!modal || !id) return;
+      if (modal === 'approve') {
+        await runReviewerAction(
+          () => approveMutation.mutateAsync(id),
+          'Application approved',
+          'Failed to approve application',
+          true,
+        );
+      }
+      if (modal === 'reject') {
+        await runReviewerAction(
+          () => rejectMutation.mutateAsync(id),
+          'Application rejected',
+          'Failed to reject application',
+          true,
+        );
+      }
+      if (modal === 'return') {
+        await runReviewerAction(
+          () => returnMutation.mutateAsync(id),
+          'Changes requested',
+          'Failed to request changes',
+          true,
+        );
+      }
+      if (modal === 'submit') await handleSubmit();
+      if (modal === 'delete') await handleDelete();
+    });
   };
 
   const handleSubmit = async () => {
@@ -219,25 +226,36 @@ export function ApplicationDetailPage() {
     }
   };
 
-  const handleAddComment = async () => {
+  const handleAddComment = () => {
     if (!id || !commentDraft.trim()) return;
-    try {
-      await addCommentMutation.mutateAsync({
-        id,
-        comment: commentDraft.trim(),
-      });
-      setCommentDraft('');
-      showToast('success', 'Comment added');
-    } catch (err) {
-      showToast(
-        'error',
-        err instanceof ApiError ? err.message : 'Failed to add comment',
-      );
-    }
+    runLocked(async () => {
+      try {
+        await addCommentMutation.mutateAsync({
+          id,
+          comment: commentDraft.trim(),
+        });
+        setCommentDraft('');
+        showToast('success', 'Comment added');
+      } catch (err) {
+        showToast(
+          'error',
+          err instanceof ApiError ? err.message : 'Failed to add comment',
+        );
+      }
+    });
   };
 
+  const modalConfirmLoading =
+    Boolean(modal) &&
+    ((modal === 'approve' && approveMutation.isPending) ||
+      (modal === 'reject' && rejectMutation.isPending) ||
+      (modal === 'return' && returnMutation.isPending) ||
+      (modal === 'submit' && submitMutation.isPending) ||
+      (modal === 'delete' && deleteMutation.isPending) ||
+      addCommentMutation.isPending);
+
   if (isLoading) {
-    return <p className="text-sm text-brand/60">Loading…</p>;
+    return <DetailPageSkeleton />;
   }
 
   if (!app) {
@@ -286,6 +304,7 @@ export function ApplicationDetailPage() {
               <Button
                 variant="secondary"
                 onClick={() => setModal('delete')}
+                loading={deleteMutation.isPending}
                 disabled={deleteMutation.isPending}
               >
                 Delete
@@ -302,6 +321,7 @@ export function ApplicationDetailPage() {
             {canEditApplication(app.status) && (
               <Button
                 onClick={() => setModal('submit')}
+                loading={submitMutation.isPending}
                 disabled={submitMutation.isPending}
               >
                 Submit
@@ -395,6 +415,7 @@ export function ApplicationDetailPage() {
                 <Button
                   variant="secondary"
                   onClick={handleAddComment}
+                  loading={addCommentMutation.isPending}
                   disabled={addCommentMutation.isPending || !commentDraft.trim()}
                 >
                   Add comment
@@ -422,6 +443,7 @@ export function ApplicationDetailPage() {
                   <Button
                     className="w-full"
                     onClick={handleStartReview}
+                    loading={startReviewMutation.isPending}
                     disabled={reviewerPending}
                   >
                     Start review
@@ -477,6 +499,7 @@ export function ApplicationDetailPage() {
           title={modalConfig.title}
           message={modalConfig.message}
           confirmLabel={modalConfig.confirmLabel}
+          confirmLoading={modalConfirmLoading}
           showComment={modalConfig.showComment}
           commentLabel={modalConfig.commentLabel}
           comment={modalComment}

@@ -1,5 +1,9 @@
 import { useMemo, useState } from 'react';
-import { AlertCircle, CheckCircle, Clock, Layers } from 'lucide-react';
+import {
+  CheckCircle,
+  Clock,
+  Layers,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { isActiveStatus } from '@/api/mappers';
 import {
@@ -9,18 +13,33 @@ import {
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { SectionCard } from '@/components/ui/section-card';
-import { ListSkeleton } from '@/components/ui/skeleton';
+import {
+  ApplicationListSkeleton,
+  FilterPillsSkeleton,
+  PageHeaderSkeleton,
+  StatsBarSkeleton,
+} from '@/components/ui/skeleton';
 import { StatsBar } from '@/components/ui/stats-bar';
 import { cn } from '@/lib/cn';
 import { useReviewerApplications } from '@/hooks/useApplications';
 import type { UiStatus } from '@/types/ui';
 
-type QueueFilter = 'all' | UiStatus;
+type QueueFilter = 'active' | UiStatus;
+
+const LIST_TITLES: Record<QueueFilter, string> = {
+  active: 'Applications in queue',
+  submitted: 'Submitted applications',
+  under_review: 'Under review',
+  changes_requested: 'Changes requested',
+  approved: 'Approved applications',
+  rejected: 'Rejected applications',
+  draft: 'Draft applications',
+};
 
 export function QueuePage() {
   const navigate = useNavigate();
   const { data: apps = [], isLoading, isError } = useReviewerApplications();
-  const [filter, setFilter] = useState<QueueFilter>('all');
+  const [filter, setFilter] = useState<QueueFilter>('active');
 
   const queueApps = useMemo(
     () => apps.filter((a) => a.status !== 'draft'),
@@ -29,16 +48,18 @@ export function QueuePage() {
 
   const counts = useMemo(
     () => ({
-      all: queueApps.filter((a) => isActiveStatus(a.status)).length,
+      active: queueApps.filter((a) => isActiveStatus(a.status)).length,
       submitted: queueApps.filter((a) => a.status === 'submitted').length,
       under_review: queueApps.filter((a) => a.status === 'under_review').length,
       changes_requested: queueApps.filter((a) => a.status === 'changes_requested').length,
+      approved: queueApps.filter((a) => a.status === 'approved').length,
+      rejected: queueApps.filter((a) => a.status === 'rejected').length,
     }),
     [queueApps],
   );
 
   const filtered = useMemo(() => {
-    if (filter === 'all') {
+    if (filter === 'active') {
       return queueApps.filter((a) => isActiveStatus(a.status));
     }
     return queueApps.filter((a) => a.status === filter);
@@ -47,7 +68,7 @@ export function QueuePage() {
   const stats = [
     {
       label: 'Active',
-      value: counts.all,
+      value: counts.active,
       icon: Layers,
       iconBg: 'bg-brand-muted',
       iconColor: 'text-brand',
@@ -67,30 +88,32 @@ export function QueuePage() {
       iconColor: 'text-brand',
     },
     {
-      label: 'Changes',
-      value: counts.changes_requested,
-      icon: AlertCircle,
-      iconBg: 'bg-tan',
-      iconColor: 'text-tan-text',
+      label: 'Approved',
+      value: counts.approved,
+      icon: CheckCircle,
+      iconBg: 'bg-brand-muted',
+      iconColor: 'text-brand',
     },
   ];
 
   const filters: { key: QueueFilter; label: string; count: number }[] = [
-    { key: 'all', label: 'All', count: counts.all },
+    { key: 'active', label: 'Active', count: counts.active },
     { key: 'submitted', label: 'Submitted', count: counts.submitted },
     { key: 'under_review', label: 'Under review', count: counts.under_review },
     { key: 'changes_requested', label: 'Changes', count: counts.changes_requested },
+    { key: 'approved', label: 'Approved', count: counts.approved },
+    { key: 'rejected', label: 'Rejected', count: counts.rejected },
   ];
+
+  const listTitle = LIST_TITLES[filter] ?? 'Applications';
 
   if (isLoading) {
     return (
       <>
-        <PageHeader
-          title="Review queue"
-          description="Applications awaiting your review."
-        />
-        <StatsBar items={stats} />
-        <ListSkeleton />
+        <PageHeaderSkeleton />
+        <StatsBarSkeleton count={4} />
+        <FilterPillsSkeleton count={6} />
+        <ApplicationListSkeleton rows={4} title="Applications in queue" />
       </>
     );
   }
@@ -108,7 +131,7 @@ export function QueuePage() {
     <>
       <PageHeader
         title="Review queue"
-        description="Applications awaiting your review."
+        description="Review active applications and browse approved or rejected submissions."
       />
 
       <StatsBar items={stats} />
@@ -135,7 +158,7 @@ export function QueuePage() {
       </div>
 
       {filtered.length > 0 ? (
-        <SectionCard title="Applications in queue">
+        <SectionCard title={listTitle}>
           <ApplicationList>
             {filtered.map((app) => (
               <ApplicationListItem
@@ -152,7 +175,13 @@ export function QueuePage() {
         </SectionCard>
       ) : (
         <EmptyState
-          title="Queue is clear"
+          title={
+            filter === 'approved'
+              ? 'No approved applications'
+              : filter === 'rejected'
+                ? 'No rejected applications'
+                : 'Queue is clear'
+          }
           description="No applications match this filter."
         />
       )}

@@ -8,6 +8,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { EmptyState } from '@/components/ui/empty-state';
 import { Input, Label, Select, Textarea } from '@/components/ui/field';
 import { PageHeader } from '@/components/ui/page-header';
+import { FormPageSkeleton } from '@/components/ui/skeleton';
+import { useSubmitLock } from '@/lib/use-submit-lock';
 import { cn } from '@/lib/cn';
 import { useToast } from '@/context/ToastContext';
 import {
@@ -36,6 +38,8 @@ const emptyForm: FormState = {
   justification: '',
 };
 
+type PendingAction = 'save' | 'submit' | 'create' | null;
+
 function buildPayload(form: FormState): ApplicationFormPayload {
   const amount = form.amount.trim();
   const payload: ApplicationFormPayload = {
@@ -54,15 +58,17 @@ export function ApplicationFormPage() {
   const isEdit = Boolean(id);
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const runLocked = useSubmitLock();
   const createMutation = useCreateApplication();
   const updateMutation = useUpdateApplication();
   const submitMutation = useSubmitApplication();
-  const { data: myApps } = useMyApplications();
+  const { data: myApps, isLoading: appsLoading } = useMyApplications();
 
   const existing = isEdit ? myApps?.find((a) => a.id === id) : undefined;
 
   const [form, setForm] = useState<FormState>(emptyForm);
   const [errors, setErrors] = useState<Partial<Record<string, string>>>({});
+  const [pendingAction, setPendingAction] = useState<PendingAction>(null);
 
   useEffect(() => {
     if (existing) {
@@ -104,53 +110,72 @@ export function ApplicationFormPage() {
     else navigate('/dashboard');
   };
 
-  const handleSaveDraft = async () => {
-    const e = validate(false);
-    if (Object.keys(e).length) {
-      setErrors(e);
-      showToast('error', 'Add a title before saving.');
-      return;
-    }
-    const body = buildPayload(form);
-    try {
-      if (isEdit && id) {
-        await updateMutation.mutateAsync({ id, body });
-        showToast('success', 'Changes saved');
-        navigate(`/applications/${id}`);
-      } else {
-        const app = await createMutation.mutateAsync(body);
-        showToast('success', 'Draft created');
-        navigate(`/applications/${app.id}`);
+  const handleSaveDraft = () =>
+    runLocked(async () => {
+      const e = validate(false);
+      if (Object.keys(e).length) {
+        setErrors(e);
+        showToast('error', 'Add a title before saving.');
+        return;
       }
-    } catch (err) {
-      showToast(
-        'error',
-        err instanceof ApiError ? err.message : 'Failed to save',
-      );
-    }
+      const body = buildPayload(form);
+      const action: PendingAction = isEdit ? 'save' : 'create';
+      setPendingAction(action);
+      try {
+        if (isEdit && id) {
+          await updateMutation.mutateAsync({ id, body });
+          showToast('success', 'Changes saved');
+          navigate(`/applications/${id}`);
+        } else {
+          const app = await createMutation.mutateAsync(body);
+          showToast('success', 'Draft created');
+          navigate(`/applications/${app.id}`);
+        }
+      } catch (err) {
+        showToast(
+          'error',
+          err instanceof ApiError ? err.message : 'Failed to save',
+        );
+      } finally {
+        setPendingAction(null);
+      }
+    });
+
+  const handleSubmit = () =>
+    runLocked(async () => {
+      if (!id) return;
+      const e = validate(true);
+      if (Object.keys(e).length) {
+        setErrors(e);
+        showToast('error', 'Please fix the highlighted fields');
+        return;
+      }
+      const body = buildPayload(form);
+      setPendingAction('submit');
+      try {
+        await updateMutation.mutateAsync({ id, body });
+        await submitMutation.mutateAsync(id);
+        showToast('success', 'Application submitted for review');
+        navigate(`/applications/${id}`);
+      } catch (err) {
+        showToast(
+          'error',
+          err instanceof ApiError ? err.message : 'Failed to submit',
+        );
+      } finally {
+        setPendingAction(null);
+      }
+    });
+
+  const onFormSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isEdit) handleSubmit();
+    else handleSaveDraft();
   };
 
-  const handleSubmit = async () => {
-    if (!id) return;
-    const e = validate(true);
-    if (Object.keys(e).length) {
-      setErrors(e);
-      showToast('error', 'Please fix the highlighted fields');
-      return;
-    }
-    const body = buildPayload(form);
-    try {
-      await updateMutation.mutateAsync({ id, body });
-      await submitMutation.mutateAsync(id);
-      showToast('success', 'Application submitted for review');
-      navigate(`/applications/${id}`);
-    } catch (err) {
-      showToast(
-        'error',
-        err instanceof ApiError ? err.message : 'Failed to submit',
-      );
-    }
-  };
+  if (isEdit && appsLoading) {
+    return <FormPageSkeleton />;
+  }
 
   if (isEdit && myApps && !existing) {
     return <p className="text-sm text-brand/60">Application not found.</p>;
@@ -167,16 +192,25 @@ export function ApplicationFormPage() {
   }
 
   const pending =
+    pendingAction !== null ||
     createMutation.isPending ||
     updateMutation.isPending ||
     submitMutation.isPending;
+
+  const saveLabel =
+    pendingAction === 'save' ? 'Saving…' : 'Save draft';
+  const submitLabel =
+    pendingAction === 'submit' ? 'Submitting…' : 'Submit application';
+  const createLabel =
+    pendingAction === 'create' ? 'Creating…' : 'Create application';
 
   return (
     <>
       <button
         type="button"
         onClick={goBack}
-        className="mb-4 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-brand/50 font-mono hover:text-brand transition-colors"
+        disabled={pending}
+        className="mb-4 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-brand/50 font-mono hover:text-brand transition-colors disabled:opacity-50"
       >
         <ArrowLeft className="h-3.5 w-3.5" />
         Back
@@ -192,104 +226,125 @@ export function ApplicationFormPage() {
         className="mb-6"
       />
 
-      <Card className="max-w-2xl">
-        <CardContent className="space-y-5 pt-6">
-          <div>
-            <Label>Title</Label>
-            <Input
-              name="title"
-              value={form.title}
-              onChange={updateField}
-              placeholder="e.g. Q3 Resource Allocation"
-              className={cn(errors.title && 'border-red-300 focus:border-red-400 focus:ring-red-200')}
-            />
-            {errors.title && (
-              <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.title}</p>
-            )}
-          </div>
+      <form onSubmit={onFormSubmit} className="max-w-2xl">
+        <fieldset disabled={pending} className="min-w-0 border-0 p-0 m-0">
+          <Card>
+            <CardContent className="space-y-5 pt-6">
+              <div>
+                <Label>Title</Label>
+                <Input
+                  name="title"
+                  value={form.title}
+                  onChange={updateField}
+                  placeholder="e.g. Q3 Resource Allocation"
+                  className={cn(errors.title && 'border-red-300 focus:border-red-400 focus:ring-red-200')}
+                />
+                {errors.title && (
+                  <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.title}</p>
+                )}
+              </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <div>
-              <Label>Type</Label>
-              <Select
-                name="type"
-                value={form.type}
-                onChange={updateField}
-                className={cn(errors.type && 'border-red-300')}
-              >
-                <option value="">Select a type…</option>
-                <option value="General Request">General Request</option>
-                <option value="Budget Request">Budget Request</option>
-                <option value="Access Request">Access Request</option>
-                <option value="Procurement">Procurement</option>
-                <option value="Other">Other</option>
-              </Select>
-              {errors.type && (
-                <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.type}</p>
-              )}
-            </div>
-            <div>
-              <Label>Priority</Label>
-              <Select name="priority" value={form.priority} onChange={updateField}>
-                <option value="Low">Low</option>
-                <option value="Medium">Medium</option>
-                <option value="High">High</option>
-              </Select>
-            </div>
-            <div>
-              <Label>Amount (USD)</Label>
-              <Input
-                name="amount"
-                value={form.amount}
-                onChange={updateField}
-                placeholder="optional"
-              />
-            </div>
-          </div>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <Label>Type</Label>
+                  <Select
+                    name="type"
+                    value={form.type}
+                    onChange={updateField}
+                    className={cn(errors.type && 'border-red-300')}
+                  >
+                    <option value="">Select a type…</option>
+                    <option value="General Request">General Request</option>
+                    <option value="Budget Request">Budget Request</option>
+                    <option value="Access Request">Access Request</option>
+                    <option value="Procurement">Procurement</option>
+                    <option value="Other">Other</option>
+                  </Select>
+                  {errors.type && (
+                    <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.type}</p>
+                  )}
+                </div>
+                <div>
+                  <Label>Priority</Label>
+                  <Select name="priority" value={form.priority} onChange={updateField}>
+                    <option value="Low">Low</option>
+                    <option value="Medium">Medium</option>
+                    <option value="High">High</option>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Amount (USD)</Label>
+                  <Input
+                    name="amount"
+                    value={form.amount}
+                    onChange={updateField}
+                    placeholder="optional"
+                  />
+                </div>
+              </div>
 
-          <div>
-            <Label>Description</Label>
-            <Textarea
-              name="description"
-              rows={4}
-              value={form.description}
-              onChange={updateField}
-              placeholder="Describe what you are requesting and why."
-              className={cn(errors.description && 'border-red-300')}
-            />
-            {errors.description && (
-              <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.description}</p>
-            )}
-          </div>
+              <div>
+                <Label>Description</Label>
+                <Textarea
+                  name="description"
+                  rows={4}
+                  value={form.description}
+                  onChange={updateField}
+                  placeholder="Describe what you are requesting and why."
+                  className={cn(errors.description && 'border-red-300')}
+                />
+                {errors.description && (
+                  <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.description}</p>
+                )}
+              </div>
 
-          <div>
-            <Label>Justification</Label>
-            <Textarea
-              name="justification"
-              rows={3}
-              value={form.justification}
-              onChange={updateField}
-              placeholder="Optional supporting context for the reviewer."
-            />
-          </div>
-        </CardContent>
-      </Card>
+              <div>
+                <Label>Justification</Label>
+                <Textarea
+                  name="justification"
+                  rows={3}
+                  value={form.justification}
+                  onChange={updateField}
+                  placeholder="Optional supporting context for the reviewer."
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </fieldset>
 
-      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end max-w-2xl sticky bottom-0 bg-canvas/90 py-4 -mx-1 px-1 sm:static sm:bg-transparent sm:py-0">
-        <Button variant="secondary" onClick={goBack}>Cancel</Button>
-        <Button variant="secondary" onClick={handleSaveDraft} disabled={pending}>
-          Save draft
-        </Button>
-        {isEdit ? (
-          <Button onClick={handleSubmit} disabled={pending}>
-            {submitMutation.isPending ? 'Submitting…' : 'Submit application'}
+        <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sticky bottom-0 bg-canvas/90 py-4 -mx-1 px-1 sm:static sm:bg-transparent sm:py-0">
+          <Button type="button" variant="secondary" onClick={goBack} disabled={pending}>
+            Cancel
           </Button>
-        ) : (
-          <Button onClick={handleSaveDraft} disabled={pending}>
-            {createMutation.isPending ? 'Creating…' : 'Create application'}
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={handleSaveDraft}
+            loading={pendingAction === 'save'}
+            disabled={pending}
+          >
+            {saveLabel}
           </Button>
-        )}
-      </div>
+          {isEdit ? (
+            <Button
+              type="submit"
+              loading={pendingAction === 'submit'}
+              disabled={pending}
+            >
+              {submitLabel}
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleSaveDraft}
+              loading={pendingAction === 'create'}
+              disabled={pending}
+            >
+              {createLabel}
+            </Button>
+          )}
+        </div>
+      </form>
     </>
   );
 }

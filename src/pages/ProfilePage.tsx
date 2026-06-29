@@ -57,7 +57,7 @@ export function ProfilePage() {
               <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
                 Workspace
               </div>
-              <div className="text-sm font-medium text-brand">ApprovalFlow</div>
+              <div className="text-sm font-medium text-brand">ReviewTrack</div>
             </div>
           </div>
 

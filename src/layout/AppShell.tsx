@@ -100,7 +100,7 @@ export function AppShell({
             <Check className="h-4 w-4" strokeWidth={2.5} />
           </div>
           <span className="text-[15px] font-semibold tracking-tight text-brand">
-            ApprovalFlow
+            ReviewTrack
           </span>
         </div>
 
