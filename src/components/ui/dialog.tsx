@@ -7,6 +7,7 @@ interface DialogProps {
   message: string;
   confirmLabel: string;
   onConfirm: () => void;
+  confirmLoading?: boolean;
   showComment?: boolean;
   commentLabel?: string;
   comment?: string;
@@ -20,6 +21,7 @@ export function Dialog({
   message,
   confirmLabel,
   onConfirm,
+  confirmLoading,
   showComment,
   commentLabel,
   comment,
@@ -27,10 +29,14 @@ export function Dialog({
 }: DialogProps) {
   if (!open) return null;
 
+  const handleOverlayClick = () => {
+    if (!confirmLoading) onClose();
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-brand/40 p-4 animate-fade-in"
-      onClick={onClose}
+      onClick={handleOverlayClick}
     >
       <div
         role="dialog"
@@ -48,17 +54,22 @@ export function Dialog({
               {commentLabel}
             </label>
             <textarea
-              className="w-full rounded-lg border border-brand/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 resize-y min-h-[80px]"
+              className="w-full rounded-lg border border-brand/15 bg-white px-3 py-2.5 text-sm outline-none focus:border-brand focus:ring-2 focus:ring-brand/20 resize-y min-h-[80px] disabled:opacity-50"
               rows={3}
               placeholder="Type your note…"
               value={comment ?? ''}
               onChange={(e) => onCommentChange?.(e.target.value)}
+              disabled={confirmLoading}
             />
           </div>
         )}
         <div className="mt-6 flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>Cancel</Button>
-          <Button onClick={onConfirm}>{confirmLabel}</Button>
+          <Button variant="secondary" onClick={onClose} disabled={confirmLoading}>
+            Cancel
+          </Button>
+          <Button onClick={onConfirm} loading={confirmLoading}>
+            {confirmLabel}
+          </Button>
         </div>
       </div>
     </div>

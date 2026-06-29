@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input, Label } from '@/components/ui/field';
 import { cn } from '@/lib/cn';
+import { useSubmitLock } from '@/lib/use-submit-lock';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 
@@ -24,6 +25,7 @@ export function LoginPage() {
   const { login, isAuthenticated, user } = useAuth();
   const { showToast } = useToast();
   const navigate = useNavigate();
+  const runLocked = useSubmitLock();
 
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -34,22 +36,28 @@ export function LoginPage() {
 
   if (isAuthenticated && user) return null;
 
-  const handleSignIn = async () => {
-    setLoading(true);
-    try {
-      const uiUser = await login(email, password);
-      showToast('success', `Signed in as ${uiUser.name}`);
-      navigate(uiUser.role === 'applicant' ? '/dashboard' : '/queue', {
-        replace: true,
-      });
-    } catch (err) {
-      showToast(
-        'error',
-        err instanceof ApiError ? err.message : 'Sign in failed',
-      );
-    } finally {
-      setLoading(false);
-    }
+  const handleSignIn = () =>
+    runLocked(async () => {
+      setLoading(true);
+      try {
+        const uiUser = await login(email, password);
+        showToast('success', `Signed in as ${uiUser.name}`);
+        navigate(uiUser.role === 'applicant' ? '/dashboard' : '/queue', {
+          replace: true,
+        });
+      } catch (err) {
+        showToast(
+          'error',
+          err instanceof ApiError ? err.message : 'Sign in failed',
+        );
+      } finally {
+        setLoading(false);
+      }
+    });
+
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    handleSignIn();
   };
 
   return (
@@ -60,7 +68,7 @@ export function LoginPage() {
             <Check className="h-5 w-5" strokeWidth={2.5} />
           </div>
           <span className="text-lg font-semibold tracking-tight text-brand">
-            ApprovalFlow
+            ReviewTrack
           </span>
         </div>
 
@@ -76,6 +84,7 @@ export function LoginPage() {
             <button
               key={role}
               type="button"
+              disabled={loading}
               onClick={() => {
                 setLoginRole(role);
                 setEmail(DEMO_EMAILS[role]);
@@ -92,13 +101,14 @@ export function LoginPage() {
           ))}
         </div>
 
-        <div className="mt-6 space-y-4">
+        <form onSubmit={onSubmit} className="mt-6 space-y-4">
           <div>
             <Label>Email</Label>
             <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              disabled={loading}
             />
           </div>
           <div>
@@ -107,17 +117,14 @@ export function LoginPage() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              disabled={loading}
             />
           </div>
-        </div>
 
-        <Button
-          className="mt-6 w-full"
-          onClick={handleSignIn}
-          disabled={loading}
-        >
-          {loading ? 'Signing in…' : 'Sign in'}
-        </Button>
+          <Button type="submit" className="mt-2 w-full" loading={loading}>
+            {loading ? 'Signing in…' : 'Sign in'}
+          </Button>
+        </form>
         <p className="mt-5 text-center text-xs text-brand/40 font-mono">
           Demo environment — credentials from your API
         </p>

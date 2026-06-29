@@ -8,6 +8,7 @@ import type {
 } from '@/types/ui';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
+const REQUEST_TIMEOUT_MS = 30_000;
 
 interface SuccessEnvelope<T> {
   success: boolean;
@@ -25,11 +26,50 @@ export class ApiError extends Error {
 }
 
 async function parseJsonResponse<T>(res: Response): Promise<T> {
-  const body = (await res.json()) as SuccessEnvelope<T>;
+  const text = await res.text();
+  if (!text) {
+    if (!res.ok) {
+      throw new ApiError('Request failed', res.status);
+    }
+    return undefined as T;
+  }
+
+  let body: SuccessEnvelope<T>;
+  try {
+    body = JSON.parse(text) as SuccessEnvelope<T>;
+  } catch {
+    throw new ApiError('Invalid response from server', res.status);
+  }
+
   if (!res.ok || body.success === false) {
     throw new ApiError(body.message ?? 'Request failed', res.status);
   }
   return body.data as T;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  options: RequestInit,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new ApiError(
+        'Request timed out. Check your connection.',
+        0,
+      );
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 export async function apiFetch<T>(
@@ -47,7 +87,7 @@ export async function apiFetch<T>(
     if (token) headers.Authorization = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${baseUrl}${path}`, {
+  const res = await fetchWithTimeout(`${baseUrl}${path}`, {
     ...options,
     headers,
   });
@@ -115,7 +155,7 @@ export async function deleteApplication(id: string): Promise<void> {
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await fetch(`${baseUrl}/api/applications/${id}`, {
+  const res = await fetchWithTimeout(`${baseUrl}/api/applications/${id}`, {
     method: 'DELETE',
     headers,
   });

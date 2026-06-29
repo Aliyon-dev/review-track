@@ -8,7 +8,11 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/ui/empty-state';
 import { PageHeader } from '@/components/ui/page-header';
 import { SectionCard } from '@/components/ui/section-card';
-import { ListSkeleton } from '@/components/ui/skeleton';
+import {
+  ApplicationListSkeleton,
+  PageHeaderSkeleton,
+  StatsBarSkeleton,
+} from '@/components/ui/skeleton';
 import { StatsBar } from '@/components/ui/stats-bar';
 import { useMyApplications } from '@/hooks/useApplications';
 
@@ -52,12 +56,9 @@ export function DashboardPage() {
   if (isLoading) {
     return (
       <>
-        <PageHeader
-          title="Applications"
-          description="Create, track, and manage your submissions."
-        />
-        <StatsBar items={stats} />
-        <ListSkeleton />
+        <PageHeaderSkeleton showAction />
+        <StatsBarSkeleton count={4} />
+        <ApplicationListSkeleton rows={4} title="Recent applications" />
       </>
     );
   }
