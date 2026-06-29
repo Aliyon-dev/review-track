@@ -1,7 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  addApplicationComment,
   approveApplication,
   createApplication,
+  deleteApplication,
+  getApplication,
+  getApplicationEvents,
   getMyApplications,
   getReviewerApplication,
   getReviewerApplications,
@@ -9,8 +13,10 @@ import {
   returnApplication,
   startReview,
   submitApplication,
+  updateApplication,
 } from '@/api/client';
-import { mapApplication } from '@/api/mappers';
+import { mapActivityEvent, mapApplication } from '@/api/mappers';
+import type { ApplicationFormPayload } from '@/types/ui';
 
 export const applicationKeys = {
   all: ['applications'] as const,
@@ -18,6 +24,7 @@ export const applicationKeys = {
   reviewer: ['reviewer', 'applications'] as const,
   detail: (id: string) => ['applications', id] as const,
   reviewerDetail: (id: string) => ['reviewer', 'applications', id] as const,
+  events: (id: string) => ['applications', id, 'events'] as const,
 };
 
 function invalidateApplicationQueries(
@@ -28,6 +35,7 @@ function invalidateApplicationQueries(
   queryClient.invalidateQueries({ queryKey: applicationKeys.my });
   queryClient.invalidateQueries({ queryKey: applicationKeys.detail(id) });
   queryClient.invalidateQueries({ queryKey: applicationKeys.reviewerDetail(id) });
+  queryClient.invalidateQueries({ queryKey: applicationKeys.events(id) });
 }
 
 export function useMyApplications() {
@@ -51,12 +59,31 @@ export function useReviewerApplications(enabled = true) {
   });
 }
 
-export function useReviewerApplication(id: string | undefined, enabled = true) {
+export function useApplication(
+  id: string | undefined,
+  enabled = true,
+  asReviewer = false,
+) {
   return useQuery({
-    queryKey: applicationKeys.reviewerDetail(id ?? ''),
+    queryKey: asReviewer
+      ? applicationKeys.reviewerDetail(id ?? '')
+      : applicationKeys.detail(id ?? ''),
     queryFn: async () => {
-      const data = await getReviewerApplication(id!);
+      const data = asReviewer
+        ? await getReviewerApplication(id!)
+        : await getApplication(id!);
       return mapApplication(data);
+    },
+    enabled: Boolean(id) && enabled,
+  });
+}
+
+export function useApplicationEvents(id: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: applicationKeys.events(id ?? ''),
+    queryFn: async () => {
+      const data = await getApplicationEvents(id!);
+      return data.map(mapActivityEvent);
     },
     enabled: Boolean(id) && enabled,
   });
@@ -72,12 +99,50 @@ export function useCreateApplication() {
   });
 }
 
+export function useUpdateApplication() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: Partial<ApplicationFormPayload>;
+    }) => updateApplication(id, body),
+    onSuccess: (_, { id }) => {
+      invalidateApplicationQueries(queryClient, id);
+    },
+  });
+}
+
+export function useDeleteApplication() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: deleteApplication,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: applicationKeys.my });
+      queryClient.invalidateQueries({ queryKey: applicationKeys.reviewer });
+    },
+  });
+}
+
 export function useSubmitApplication() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: submitApplication,
     onSuccess: (_, id) => {
       invalidateApplicationQueries(queryClient, id);
+    },
+  });
+}
+
+export function useAddComment() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, comment }: { id: string; comment: string }) =>
+      addApplicationComment(id, comment),
+    onSuccess: (_, { id }) => {
+      queryClient.invalidateQueries({ queryKey: applicationKeys.events(id) });
     },
   });
 }

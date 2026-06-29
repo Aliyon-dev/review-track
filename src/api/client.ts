@@ -1,5 +1,11 @@
 import { getToken } from '@/api/token';
-import type { ApiApplication, ApiStatus, ApiUser } from '@/types/ui';
+import type {
+  ApiActivityEvent,
+  ApiApplication,
+  ApiStatus,
+  ApiUser,
+  ApplicationFormPayload,
+} from '@/types/ui';
 
 const baseUrl = import.meta.env.VITE_API_BASE_URL ?? '';
 
@@ -18,7 +24,7 @@ export class ApiError extends Error {
   }
 }
 
-async function parseResponse<T>(res: Response): Promise<T> {
+async function parseJsonResponse<T>(res: Response): Promise<T> {
   const body = (await res.json()) as SuccessEnvelope<T>;
   if (!res.ok || body.success === false) {
     throw new ApiError(body.message ?? 'Request failed', res.status);
@@ -46,7 +52,7 @@ export async function apiFetch<T>(
     headers,
   });
 
-  return parseResponse<T>(res);
+  return parseJsonResponse<T>(res);
 }
 
 export async function healthCheck(): Promise<void> {
@@ -57,7 +63,7 @@ export async function login(
   email: string,
   password: string,
 ): Promise<{ token: string; user: ApiUser }> {
-  const data = await apiFetch<{ token: string; user: ApiUser }>(
+  return apiFetch<{ token: string; user: ApiUser }>(
     '/api/auth/login',
     {
       method: 'POST',
@@ -65,26 +71,79 @@ export async function login(
     },
     false,
   );
-  return data;
+}
+
+export async function getMe(): Promise<ApiUser> {
+  return apiFetch<ApiUser>('/api/auth/me');
+}
+
+export async function logout(): Promise<void> {
+  await apiFetch<{ message?: string }>('/api/auth/logout', {
+    method: 'POST',
+  });
 }
 
 export async function getMyApplications(): Promise<ApiApplication[]> {
   return apiFetch<ApiApplication[]>('/api/applications/my');
 }
 
-export async function createApplication(body: {
-  title: string;
-  description: string;
-}): Promise<ApiApplication> {
+export async function getApplication(id: string): Promise<ApiApplication> {
+  return apiFetch<ApiApplication>(`/api/applications/${id}`);
+}
+
+export async function createApplication(
+  body: ApplicationFormPayload,
+): Promise<ApiApplication> {
   return apiFetch<ApiApplication>('/api/applications', {
     method: 'POST',
     body: JSON.stringify(body),
   });
 }
 
+export async function updateApplication(
+  id: string,
+  body: Partial<ApplicationFormPayload>,
+): Promise<ApiApplication> {
+  return apiFetch<ApiApplication>(`/api/applications/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  });
+}
+
+export async function deleteApplication(id: string): Promise<void> {
+  const token = getToken();
+  const headers: Record<string, string> = {};
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const res = await fetch(`${baseUrl}/api/applications/${id}`, {
+    method: 'DELETE',
+    headers,
+  });
+
+  if (res.status === 204) return;
+
+  await parseJsonResponse<unknown>(res);
+}
+
 export async function submitApplication(id: string): Promise<ApiApplication> {
   return apiFetch<ApiApplication>(`/api/applications/${id}/submit`, {
     method: 'PATCH',
+  });
+}
+
+export async function getApplicationEvents(
+  id: string,
+): Promise<ApiActivityEvent[]> {
+  return apiFetch<ApiActivityEvent[]>(`/api/applications/${id}/events`);
+}
+
+export async function addApplicationComment(
+  id: string,
+  comment: string,
+): Promise<void> {
+  await apiFetch(`/api/applications/${id}/comments`, {
+    method: 'POST',
+    body: JSON.stringify({ comment }),
   });
 }
 

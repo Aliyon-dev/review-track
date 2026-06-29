@@ -109,9 +109,9 @@ export function QueuePage() {
                           fontFamily: 'JetBrains Mono, monospace',
                         }}
                       >
-                        {initials(app.applicantId)}
+                        {initials(app.applicantName ?? app.applicantId)}
                       </span>
-                      {app.applicantId}
+                      {app.applicantName ?? app.applicantId}
                     </span>
                   </td>
                   <td>

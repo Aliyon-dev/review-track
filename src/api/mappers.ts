@@ -1,8 +1,10 @@
 import type {
+  ApiActivityEvent,
   ApiApplication,
   ApiRole,
   ApiStatus,
   ApiUser,
+  UiActivityEvent,
   UiApplication,
   UiRole,
   UiStatus,
@@ -48,16 +50,87 @@ export function mapUser(user: ApiUser): UiUser {
   };
 }
 
+export function formatPriorityDisplay(priority: string | null | undefined): string | undefined {
+  if (!priority) return undefined;
+  const upper = priority.toUpperCase();
+  const map: Record<string, string> = {
+    LOW: 'Low',
+    MEDIUM: 'Medium',
+    HIGH: 'High',
+  };
+  return map[upper] ?? priority;
+}
+
+export function priorityToApi(priority: string): string {
+  return priority.toUpperCase();
+}
+
 export function mapApplication(app: ApiApplication): UiApplication {
+  const applicantName = app.applicant
+    ? `${app.applicant.firstName} ${app.applicant.lastName}`.trim()
+    : undefined;
+
   return {
     id: app.id,
     title: app.title,
     description: app.description,
     status: mapStatus(app.status),
     applicantId: app.applicantId,
+    applicantName,
     createdAt: app.createdAt,
     updatedAt: app.updatedAt,
+    submittedAt: app.submittedAt,
+    type: app.type ?? undefined,
+    priority: formatPriorityDisplay(app.priority),
+    amount: app.amount != null ? String(app.amount) : undefined,
+    justification: app.justification ?? undefined,
   };
+}
+
+export function mapActivityEvent(event: ApiActivityEvent): UiActivityEvent {
+  if (event.type === 'COMMENT') {
+    return {
+      id: event.id,
+      type: event.type,
+      actor: event.reviewerName ?? 'Reviewer',
+      label: 'added a comment',
+      comment: event.comment ?? undefined,
+      ts: event.createdAt,
+      dot: '#a8a8a8',
+    };
+  }
+
+  const actor = event.changedByName ?? 'System';
+  const toLabel = event.toStatus
+    ? event.toStatus.replace(/_/g, ' ').toLowerCase()
+    : 'updated';
+  const label =
+    event.fromStatus && event.toStatus
+      ? `moved status to ${toLabel}`
+      : `updated status to ${toLabel}`;
+
+  return {
+    id: event.id,
+    type: event.type,
+    actor,
+    label,
+    ts: event.createdAt,
+    dot: statusDotForApi(event.toStatus),
+  };
+}
+
+function statusDotForApi(status: string | null | undefined): string {
+  if (!status) return '#c4c4c4';
+  const ui = mapStatus(status as ApiStatus);
+  const dots: Record<UiStatus, string> = {
+    draft: '#c4c4c4',
+    submitted: '#8e8e8e',
+    under_review: '#5e5e5e',
+    approved: '#141414',
+    rejected: '#141414',
+    changes_requested: '#141414',
+  };
+  return dots[ui] ?? '#c4c4c4';
 }
 
 export function initials(nameOrId: string): string {
@@ -69,7 +142,7 @@ export function initials(nameOrId: string): string {
   return nameOrId.slice(0, 2).toUpperCase();
 }
 
-export function fmtDate(iso: string | undefined): string {
+export function fmtDate(iso: string | undefined | null): string {
   if (!iso) return '—';
   return new Date(iso).toLocaleDateString('en-US', {
     month: 'short',
@@ -78,7 +151,7 @@ export function fmtDate(iso: string | undefined): string {
   });
 }
 
-export function fmtDateTime(iso: string | undefined): string {
+export function fmtDateTime(iso: string | undefined | null): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return (
@@ -103,4 +176,8 @@ export function statusNote(status: UiStatus): string {
 
 export function isActiveStatus(status: UiStatus): boolean {
   return ['submitted', 'under_review', 'changes_requested'].includes(status);
+}
+
+export function canEditApplication(status: UiStatus): boolean {
+  return status === 'draft' || status === 'changes_requested';
 }

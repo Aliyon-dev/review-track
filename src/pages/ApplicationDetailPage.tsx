@@ -2,25 +2,26 @@ import { useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import {
+  canEditApplication,
   fmtDate,
   statusNote,
 } from '@/api/mappers';
+import { ActivityTimeline } from '@/components/ActivityTimeline';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { DisabledWithTooltip } from '@/components/DisabledWithTooltip';
 import { StatusBadge } from '@/components/StatusBadge';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
 import {
+  useAddComment,
+  useApplication,
+  useApplicationEvents,
   useApproveApplication,
-  useMyApplications,
+  useDeleteApplication,
   useRejectApplication,
   useReturnApplication,
-  useReviewerApplication,
   useStartReview,
   useSubmitApplication,
 } from '@/hooks/useApplications';
-import type { UiApplication } from '@/types/ui';
-import { API_GAP_TOOLTIP } from '@/types/ui';
 import styles from './ApplicationDetailPage.module.css';
 
 type ModalKind =
@@ -28,6 +29,7 @@ type ModalKind =
   | 'reject'
   | 'return'
   | 'submit'
+  | 'delete'
   | null;
 
 export function ApplicationDetailPage() {
@@ -37,26 +39,20 @@ export function ApplicationDetailPage() {
   const { showToast } = useToast();
   const isReviewer = user?.role === 'reviewer';
 
-  const { data: reviewerApp, isLoading: reviewerLoading } =
-    useReviewerApplication(id, isReviewer);
-  const { data: myApps, isLoading: myLoading } = useMyApplications();
-
-  const app: UiApplication | undefined = isReviewer
-    ? reviewerApp
-    : myApps?.find((a) => a.id === id);
+  const { data: app, isLoading } = useApplication(id, true, isReviewer);
+  const { data: events = [] } = useApplicationEvents(id, Boolean(id));
 
   const startReviewMutation = useStartReview();
   const approveMutation = useApproveApplication();
   const rejectMutation = useRejectApplication();
   const returnMutation = useReturnApplication();
   const submitMutation = useSubmitApplication();
-  const reviewerPending =
-    startReviewMutation.isPending ||
-    approveMutation.isPending ||
-    rejectMutation.isPending ||
-    returnMutation.isPending;
+  const deleteMutation = useDeleteApplication();
+  const addCommentMutation = useAddComment();
+
   const [modal, setModal] = useState<ModalKind>(null);
   const [modalComment, setModalComment] = useState('');
+  const [commentDraft, setCommentDraft] = useState('');
 
   const backPath = isReviewer ? '/queue' : '/dashboard';
 
@@ -72,13 +68,29 @@ export function ApplicationDetailPage() {
     return { canStart, canDecide, resolved };
   }, [app, isReviewer]);
 
+  const reviewerPending =
+    startReviewMutation.isPending ||
+    approveMutation.isPending ||
+    rejectMutation.isPending ||
+    returnMutation.isPending;
+
+  const postCommentIfNeeded = async () => {
+    if (!id || !modalComment.trim()) return;
+    await addCommentMutation.mutateAsync({
+      id,
+      comment: modalComment.trim(),
+    });
+  };
+
   const runReviewerAction = async (
     action: () => Promise<unknown>,
     successMessage: string,
     errorFallback: string,
+    withComment = false,
   ) => {
     try {
       await action();
+      if (withComment) await postCommentIfNeeded();
       showToast('success', successMessage);
       setModal(null);
       setModalComment('');
@@ -106,6 +118,7 @@ export function ApplicationDetailPage() {
         () => approveMutation.mutateAsync(id),
         'Application approved',
         'Failed to approve application',
+        true,
       );
     }
     if (modal === 'reject') {
@@ -113,6 +126,7 @@ export function ApplicationDetailPage() {
         () => rejectMutation.mutateAsync(id),
         'Application rejected',
         'Failed to reject application',
+        true,
       );
     }
     if (modal === 'return') {
@@ -120,9 +134,11 @@ export function ApplicationDetailPage() {
         () => returnMutation.mutateAsync(id),
         'Changes requested',
         'Failed to request changes',
+        true,
       );
     }
     if (modal === 'submit') handleSubmit();
+    if (modal === 'delete') handleDelete();
   };
 
   const handleSubmit = async () => {
@@ -139,7 +155,39 @@ export function ApplicationDetailPage() {
     }
   };
 
-  if (isReviewer && reviewerLoading || !isReviewer && myLoading) {
+  const handleDelete = async () => {
+    if (!id) return;
+    try {
+      await deleteMutation.mutateAsync(id);
+      showToast('success', 'Application deleted');
+      setModal(null);
+      navigate('/dashboard');
+    } catch (err) {
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'Failed to delete application',
+      );
+    }
+  };
+
+  const handleAddComment = async () => {
+    if (!id || !commentDraft.trim()) return;
+    try {
+      await addCommentMutation.mutateAsync({
+        id,
+        comment: commentDraft.trim(),
+      });
+      setCommentDraft('');
+      showToast('success', 'Comment added');
+    } catch (err) {
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'Failed to add comment',
+      );
+    }
+  };
+
+  if (isLoading) {
     return <p className={styles.loading}>Loading…</p>;
   }
 
@@ -154,8 +202,11 @@ export function ApplicationDetailPage() {
     );
   }
 
-  const submittedDisplay =
-    app.status !== 'draft' ? fmtDate(app.updatedAt) : '—';
+  const submittedDisplay = app.submittedAt
+    ? fmtDate(app.submittedAt)
+    : app.status !== 'draft'
+      ? fmtDate(app.updatedAt)
+      : '—';
 
   return (
     <>
@@ -172,7 +223,7 @@ export function ApplicationDetailPage() {
       <div className={styles.header}>
         <div className={styles.headerMain}>
           <div className={styles.idRow}>
-            <span className={styles.id}>{app.id}</span>
+            
             <StatusBadge status={app.status} />
           </div>
           <h1 className={styles.title}>{app.title}</h1>
@@ -182,20 +233,25 @@ export function ApplicationDetailPage() {
         {!isReviewer && (
           <div className={styles.headerActions}>
             {app.status === 'draft' && (
-              <DisabledWithTooltip>
-                <button type="button" className="btn-secondary" disabled>
-                  Delete
-                </button>
-              </DisabledWithTooltip>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => setModal('delete')}
+                disabled={deleteMutation.isPending}
+              >
+                Delete
+              </button>
             )}
-            {(app.status === 'draft' || app.status === 'changes_requested') && (
-              <DisabledWithTooltip>
-                <button type="button" className="btn-secondary" disabled>
-                  Edit
-                </button>
-              </DisabledWithTooltip>
+            {canEditApplication(app.status) && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => navigate('/applications/' + app.id + '/edit')}
+              >
+                Edit
+              </button>
             )}
-            {(app.status === 'draft' || app.status === 'changes_requested') && (
+            {canEditApplication(app.status) && (
               <button
                 type="button"
                 className="btn-primary"
@@ -214,21 +270,25 @@ export function ApplicationDetailPage() {
           <div className={styles.sectionLabel}>Details</div>
           <div className={styles.metaGrid}>
             <div>
+              <div className={styles.metaLabel}>Type</div>
+              <div className={styles.metaValue}>{app.type ?? '—'}</div>
+            </div>
+            <div>
               <div className={styles.metaLabel}>Priority</div>
-              <div className={styles.metaValue}>
-                <DisabledWithTooltip>—</DisabledWithTooltip>
-              </div>
+              <div className={styles.metaValue}>{app.priority ?? '—'}</div>
             </div>
             <div>
               <div className={styles.metaLabel}>Amount</div>
               <div className={styles.metaValue}>
-                <DisabledWithTooltip>—</DisabledWithTooltip>
+                {app.amount ? `$${app.amount}` : '—'}
               </div>
             </div>
             <div>
               <div className={styles.metaLabel}>Applicant</div>
               <div className={styles.metaValue}>
-                {isReviewer ? app.applicantId : user?.name}
+                {isReviewer
+                  ? (app.applicantName ?? app.applicantId)
+                  : user?.name}
               </div>
             </div>
             <div>
@@ -242,28 +302,36 @@ export function ApplicationDetailPage() {
             <div className={styles.textBody}>{app.description}</div>
           </div>
 
-          <DisabledWithTooltip block>
-            <div className={styles.textSection}>
-              <div className={styles.metaLabel}>Justification</div>
-              <div className={styles.textBody}>—</div>
+          <div className={styles.textSection}>
+            <div className={styles.metaLabel}>Justification</div>
+            <div className={styles.textBody}>
+              {app.justification ?? '—'}
             </div>
-          </DisabledWithTooltip>
+          </div>
 
-          <DisabledWithTooltip block className={styles.commentSection}>
-            <div className={styles.sectionLabel}>Add a comment</div>
-            <textarea
-              className="field-input"
-              rows={3}
-              placeholder="Write a comment…"
-              disabled
-              style={{ marginBottom: 12 }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn-secondary" disabled>
-                Add comment
-              </button>
+          {isReviewer && (
+            <div className={styles.commentSection}>
+              <div className={styles.sectionLabel}>Add a comment</div>
+              <textarea
+                className="field-input"
+                rows={3}
+                placeholder="Write a comment…"
+                value={commentDraft}
+                onChange={(e) => setCommentDraft(e.target.value)}
+                style={{ marginBottom: 12 }}
+              />
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={handleAddComment}
+                  disabled={addCommentMutation.isPending || !commentDraft.trim()}
+                >
+                  Add comment
+                </button>
+              </div>
             </div>
-          </DisabledWithTooltip>
+          )}
         </div>
 
         <div className={styles.sideCol}>
@@ -320,18 +388,16 @@ export function ApplicationDetailPage() {
                 </div>
               )}
 
-              {reviewerActions.resolved && !reviewerActions.canDecide && !reviewerActions.canStart && (
-                <div className={styles.resolved}>No further action required</div>
-              )}
+              {reviewerActions.resolved &&
+                !reviewerActions.canDecide &&
+                !reviewerActions.canStart && (
+                  <div className={styles.resolved}>No further action required</div>
+                )}
             </div>
           )}
 
-          <DisabledWithTooltip block tooltip={API_GAP_TOOLTIP}>
-            <div className={styles.sectionLabel}>Activity</div>
-            <div className={styles.activityEmpty}>
-              Activity timeline not available in API v1.0
-            </div>
-          </DisabledWithTooltip>
+          <div className={styles.sectionLabel}>Activity</div>
+          <ActivityTimeline events={events} />
         </div>
       </div>
 
@@ -379,6 +445,15 @@ export function ApplicationDetailPage() {
           title="Submit application?"
           message="Once submitted, the application enters the review queue. You can edit it again only if a reviewer requests changes."
           confirmLabel="Submit"
+          onConfirm={confirmModal}
+          onCancel={() => setModal(null)}
+        />
+      )}
+      {modal === 'delete' && (
+        <ConfirmModal
+          title="Delete application?"
+          message="This draft will be permanently deleted."
+          confirmLabel="Delete"
           onConfirm={confirmModal}
           onCancel={() => setModal(null)}
         />
