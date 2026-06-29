@@ -26,6 +26,8 @@ export default defineConfig(({ mode }) => {
       host: '0.0.0.0',
       port: Number(process.env.PORT) || 4173,
       strictPort: true,
+      // Required on Render: vite preview blocks unknown Host headers by default
+      allowedHosts: ['.onrender.com', 'localhost'],
     },
   };
 });
