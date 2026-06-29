@@ -407,6 +407,30 @@ Output: `dist/` (HTML, JS, CSS).
 - **Same origin:** serve `dist/` and proxy `/api` to the backend (nginx, Caddy, etc.)
 - **Static host + separate API:** set `VITE_API_BASE_URL` at build time and configure API CORS
 
+### Render
+
+**Do not use `npm run dev` on Render.** The dev server binds to `localhost` only and ignores Render’s `$PORT`, which causes “No open ports detected on 0.0.0.0”.
+
+**Option A — Static Site (recommended)**
+
+| Setting | Value |
+|---------|--------|
+| Build Command | `npm install && npm run build` |
+| Publish Directory | `dist` |
+
+Set `VITE_API_BASE_URL` in Render **Environment** if your API is on another host (requires a rebuild).
+
+**Option B — Web Service**
+
+| Setting | Value |
+|---------|--------|
+| Build Command | `npm install && npm run build` |
+| Start Command | `npm run start` |
+
+`npm run start` serves the production build via `vite preview` on `0.0.0.0` and Render’s `$PORT`.
+
+Set `VITE_API_BASE_URL` at build time if the API is not on the same origin.
+
 ### Pre-deploy checklist
 
 - [ ] API is running and reachable from the browser
@@ -438,6 +462,7 @@ Note: `preview` does not proxy `/api` by default. Use a full stack proxy or poin
 | `.env` not applied | File in wrong directory | Use `.env` at **project root**, not `src/.env` |
 | `npm run lint` fails | No ESLint flat config | Add `eslint.config.js` or rely on `tsc` + build |
 | Stale session after deploy | Old localStorage keys | Clear site data or sign out; keys are `approvalflow_token` / `approvalflow_user` |
+| Render deploy times out | Start command is `npm run dev` | Use Static Site + `dist`, or Web Service with `npm run start` after `npm run build` |
 
 ---
 
