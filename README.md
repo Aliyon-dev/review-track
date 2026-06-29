@@ -429,7 +429,9 @@ Set `VITE_API_BASE_URL` in Render **Environment** if your API is on another host
 
 `npm run start` serves the production build via `vite preview` on `0.0.0.0` and Render’s `$PORT`.
 
-Set `VITE_API_BASE_URL` at build time if the API is not on the same origin.
+**Required env var (Web Service):** set `VITE_API_PROXY_TARGET` to your backend URL (e.g. `https://review-track-backend.onrender.com`). Preview proxies `/api/*` to that host — same as local dev. Without it, login requests hit the frontend and fail with 500.
+
+**Alternative:** set `VITE_API_BASE_URL` at **build time** to call the API directly from the browser (your backend must allow CORS from the frontend origin).
 
 ### Pre-deploy checklist
 
