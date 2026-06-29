@@ -1,7 +1,17 @@
 import { useMemo, useState } from 'react';
+import { AlertCircle, CheckCircle, Clock, Layers } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { fmtDate, initials, isActiveStatus } from '@/api/mappers';
-import { StatusBadge } from '@/components/StatusBadge';
+import { isActiveStatus } from '@/api/mappers';
+import {
+  ApplicationList,
+  ApplicationListItem,
+} from '@/components/ui/application-list';
+import { EmptyState } from '@/components/ui/empty-state';
+import { PageHeader } from '@/components/ui/page-header';
+import { SectionCard } from '@/components/ui/section-card';
+import { ListSkeleton } from '@/components/ui/skeleton';
+import { StatsBar } from '@/components/ui/stats-bar';
+import { cn } from '@/lib/cn';
 import { useReviewerApplications } from '@/hooks/useApplications';
 import type { UiStatus } from '@/types/ui';
 
@@ -17,12 +27,15 @@ export function QueuePage() {
     [apps],
   );
 
-  const counts = useMemo(() => ({
-    all: queueApps.filter((a) => isActiveStatus(a.status)).length,
-    submitted: queueApps.filter((a) => a.status === 'submitted').length,
-    under_review: queueApps.filter((a) => a.status === 'under_review').length,
-    changes_requested: queueApps.filter((a) => a.status === 'changes_requested').length,
-  }), [queueApps]);
+  const counts = useMemo(
+    () => ({
+      all: queueApps.filter((a) => isActiveStatus(a.status)).length,
+      submitted: queueApps.filter((a) => a.status === 'submitted').length,
+      under_review: queueApps.filter((a) => a.status === 'under_review').length,
+      changes_requested: queueApps.filter((a) => a.status === 'changes_requested').length,
+    }),
+    [queueApps],
+  );
 
   const filtered = useMemo(() => {
     if (filter === 'all') {
@@ -31,8 +44,36 @@ export function QueuePage() {
     return queueApps.filter((a) => a.status === filter);
   }, [queueApps, filter]);
 
-  if (isLoading) return <p style={{ color: '#8a8a8a' }}>Loading queue…</p>;
-  if (isError) return <p style={{ color: '#8a8a8a' }}>Failed to load queue.</p>;
+  const stats = [
+    {
+      label: 'Active',
+      value: counts.all,
+      icon: Layers,
+      iconBg: 'bg-brand-muted',
+      iconColor: 'text-brand',
+    },
+    {
+      label: 'Submitted',
+      value: counts.submitted,
+      icon: Clock,
+      iconBg: 'bg-tan',
+      iconColor: 'text-tan-text',
+    },
+    {
+      label: 'Under review',
+      value: counts.under_review,
+      icon: CheckCircle,
+      iconBg: 'bg-brand-muted',
+      iconColor: 'text-brand',
+    },
+    {
+      label: 'Changes',
+      value: counts.changes_requested,
+      icon: AlertCircle,
+      iconBg: 'bg-tan',
+      iconColor: 'text-tan-text',
+    },
+  ];
 
   const filters: { key: QueueFilter; label: string; count: number }[] = [
     { key: 'all', label: 'All', count: counts.all },
@@ -41,115 +82,79 @@ export function QueuePage() {
     { key: 'changes_requested', label: 'Changes', count: counts.changes_requested },
   ];
 
+  if (isLoading) {
+    return (
+      <>
+        <PageHeader
+          title="Review queue"
+          description="Applications awaiting your review."
+        />
+        <StatsBar items={stats} />
+        <ListSkeleton />
+      </>
+    );
+  }
+
+  if (isError) {
+    return (
+      <EmptyState
+        title="Failed to load queue"
+        description="Check your connection and try again."
+      />
+    );
+  }
+
   return (
     <>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <h1>Review queue</h1>
-        <p>Applications awaiting your review.</p>
-      </div>
+      <PageHeader
+        title="Review queue"
+        description="Applications awaiting your review."
+      />
 
-      <div className="filter-tabs">
+      <StatsBar items={stats} />
+
+      <div className="mb-6 flex flex-wrap gap-2">
         {filters.map((f) => (
           <button
             key={f.key}
             type="button"
-            className={`filter-tab ${filter === f.key ? 'active' : ''}`}
             onClick={() => setFilter(f.key)}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium font-mono uppercase tracking-wide transition-colors',
+              filter === f.key
+                ? 'border-brand bg-brand text-white'
+                : 'border-brand/15 bg-white text-brand/60 hover:border-brand/30 hover:bg-brand-muted/50',
+            )}
           >
-            {f.label} <span>{f.count}</span>
+            {f.label}
+            <span className={cn(filter === f.key ? 'text-white/70' : 'text-brand/40')}>
+              {f.count}
+            </span>
           </button>
         ))}
       </div>
 
       {filtered.length > 0 ? (
-        <div className="table-wrap">
-          <table className="data-table" style={{ minWidth: 660 }}>
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Title</th>
-                <th>Applicant</th>
-                <th>Status</th>
-                <th>Updated</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((app) => (
-                <tr
-                  key={app.id}
-                  onClick={() => navigate(`/applications/${app.id}`)}
-                >
-                  <td
-                    style={{
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '12.5px',
-                      color: '#8a8a8a',
-                    }}
-                  >
-                    {app.id}
-                  </td>
-                  <td style={{ fontWeight: 500, color: '#141414' }}>
-                    {app.title}
-                  </td>
-                  <td style={{ color: '#7a7a7a' }}>
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <span
-                        style={{
-                          width: 23,
-                          height: 23,
-                          borderRadius: '50%',
-                          border: '1px solid #dcdcdc',
-                          background: '#fff',
-                          color: '#7a7a7a',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          fontSize: '9.5px',
-                          fontFamily: 'JetBrains Mono, monospace',
-                        }}
-                      >
-                        {initials(app.applicantName ?? app.applicantId)}
-                      </span>
-                      {app.applicantName ?? app.applicantId}
-                    </span>
-                  </td>
-                  <td>
-                    <StatusBadge status={app.status} />
-                  </td>
-                  <td
-                    style={{
-                      color: '#9a9a9a',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      fontSize: '12px',
-                    }}
-                  >
-                    {fmtDate(app.updatedAt)}
-                  </td>
-                  <td style={{ textAlign: 'right', color: '#cfcfcf' }}>
-                    <svg
-                      width="15"
-                      height="15"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <polyline points="9 18 15 12 9 6" />
-                    </svg>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <SectionCard title="Applications in queue">
+          <ApplicationList>
+            {filtered.map((app) => (
+              <ApplicationListItem
+                key={app.id}
+                title={app.title}
+                id={app.id}
+                status={app.status}
+                updatedAt={app.updatedAt}
+                subtitle={app.applicantName ?? app.applicantId}
+                onClick={() => navigate(`/applications/${app.id}`)}
+              />
+            ))}
+          </ApplicationList>
+        </SectionCard>
       ) : (
-        <div className="empty-state">
-          <div className="empty-state-title">Queue is clear</div>
-          <p className="empty-state-text">No applications match this filter.</p>
-        </div>
+        <EmptyState
+          title="Queue is clear"
+          description="No applications match this filter."
+        />
       )}
     </>
   );

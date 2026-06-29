@@ -1,7 +1,11 @@
+import { LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { initials } from '@/api/mappers';
+import { Avatar } from '@/components/ui/avatar';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { PageHeader } from '@/components/ui/page-header';
 import { useAuth } from '@/context/AuthContext';
-import styles from './ProfilePage.module.css';
 
 export function ProfilePage() {
   const { user, logout } = useAuth();
@@ -16,59 +20,55 @@ export function ProfilePage() {
 
   return (
     <>
-      <div className="page-header" style={{ marginBottom: 24 }}>
-        <h1>Profile</h1>
-        <p>Your account and workspace details.</p>
-      </div>
+      <PageHeader
+        title="Profile"
+        description="Your account and workspace details."
+        className="mb-6"
+      />
 
-      <div className={styles.wrap}>
-        <div className={styles.header}>
-          <div className={styles.avatar}>{initials(user.name)}</div>
-          <div>
-            <div className={styles.name}>{user.name}</div>
-            <div className={styles.subtitle}>
-              {user.role === 'applicant' ? 'Program Manager' : 'Senior Reviewer'}
+      <Card className="max-w-lg">
+        <CardContent className="pt-6">
+          <div className="flex items-center gap-4 pb-6 border-b border-brand/5">
+            <Avatar size="lg">{initials(user.name)}</Avatar>
+            <div>
+              <div className="text-lg font-semibold text-brand">{user.name}</div>
+              <div className="text-sm text-brand/60">
+                {user.role === 'applicant' ? 'Program Manager' : 'Senior Reviewer'}
+              </div>
             </div>
           </div>
-        </div>
 
-        <div className={styles.metaGrid}>
-          <div>
-            <div className={styles.metaLabel}>Role</div>
-            <div className={styles.metaValue}>
-              {user.role === 'applicant' ? 'Applicant' : 'Reviewer'}
+          <div className="grid gap-6 py-6 sm:grid-cols-3">
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                Role
+              </div>
+              <div className="text-sm font-medium text-brand">
+                {user.role === 'applicant' ? 'Applicant' : 'Reviewer'}
+              </div>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                Email
+              </div>
+              <div className="text-sm font-medium text-brand">{user.email}</div>
+            </div>
+            <div>
+              <div className="text-[11px] font-medium uppercase tracking-wider text-brand/40 font-mono mb-1">
+                Workspace
+              </div>
+              <div className="text-sm font-medium text-brand">ApprovalFlow</div>
             </div>
           </div>
-          <div>
-            <div className={styles.metaLabel}>Email</div>
-            <div className={styles.metaValue}>{user.email}</div>
-          </div>
-          <div>
-            <div className={styles.metaLabel}>Workspace</div>
-            <div className={styles.metaValue}>ApprovalFlow</div>
-          </div>
-        </div>
 
-        <div className={styles.logoutSection}>
-          <button type="button" className={styles.logoutBtn} onClick={handleLogout}>
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-              <polyline points="16 17 21 12 16 7" />
-              <line x1="21" y1="12" x2="9" y2="12" />
-            </svg>
-            Sign out
-          </button>
-        </div>
-      </div>
+          <div className="border-t border-brand/5 pt-5">
+            <Button variant="secondary" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }

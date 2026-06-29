@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ApiError } from '@/api/client';
 import { canEditApplication, priorityToApi } from '@/api/mappers';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Input, Label, Select, Textarea } from '@/components/ui/field';
+import { PageHeader } from '@/components/ui/page-header';
+import { cn } from '@/lib/cn';
 import { useToast } from '@/context/ToastContext';
 import {
   useCreateApplication,
@@ -10,7 +17,6 @@ import {
   useUpdateApplication,
 } from '@/hooks/useApplications';
 import type { ApplicationFormPayload } from '@/types/ui';
-import styles from './ApplicationFormPage.module.css';
 
 interface FormState {
   title: string;
@@ -147,17 +153,16 @@ export function ApplicationFormPage() {
   };
 
   if (isEdit && myApps && !existing) {
-    return <p className={styles.loading}>Application not found.</p>;
+    return <p className="text-sm text-brand/60">Application not found.</p>;
   }
 
   if (isEdit && existing && !canEditApplication(existing.status)) {
     return (
-      <div className="empty-state">
-        <div className="empty-state-title">This application cannot be edited</div>
-        <button type="button" className="btn-secondary" onClick={goBack}>
-          Go back
-        </button>
-      </div>
+      <EmptyState
+        title="This application cannot be edited"
+        actionLabel="Go back"
+        onAction={goBack}
+      />
     );
   }
 
@@ -168,146 +173,122 @@ export function ApplicationFormPage() {
 
   return (
     <>
-      <button type="button" className="btn-ghost" onClick={goBack}>
-        <span className={styles.backBtn}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="19" y1="12" x2="5" y2="12" />
-            <polyline points="12 19 5 12 12 5" />
-          </svg>
-          Back
-        </span>
+      <button
+        type="button"
+        onClick={goBack}
+        className="mb-4 inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-brand/50 font-mono hover:text-brand transition-colors"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Back
       </button>
 
-      <div className="page-header" style={{ marginBottom: 26 }}>
-        <h1 style={{ fontSize: 24 }}>
-          {isEdit ? 'Edit application' : 'New application'}
-        </h1>
-        <p>
-          {isEdit
+      <PageHeader
+        title={isEdit ? 'Edit application' : 'New application'}
+        description={
+          isEdit
             ? 'Update the details below and save or resubmit.'
-            : 'Fill in the details to create a new application.'}
-        </p>
-      </div>
+            : 'Fill in the details to create a new application.'
+        }
+        className="mb-6"
+      />
 
-      <div className={styles.formWrap}>
-        <div className={styles.field}>
-          <label className="mono-label">Title</label>
-          <input
-            name="title"
-            className={`field-input ${errors.title ? 'error' : ''}`}
-            value={form.title}
-            onChange={updateField}
-            placeholder="e.g. Q3 Resource Allocation"
-          />
-          {errors.title && (
-            <div className="field-error">— {errors.title}</div>
-          )}
-        </div>
-
-        <div className={styles.row}>
-          <div className={styles.field}>
-            <label className="mono-label">Type</label>
-            <select
-              name="type"
-              className={`field-input ${errors.type ? 'error' : ''}`}
-              value={form.type}
+      <Card className="max-w-2xl">
+        <CardContent className="space-y-5 pt-6">
+          <div>
+            <Label>Title</Label>
+            <Input
+              name="title"
+              value={form.title}
               onChange={updateField}
-            >
-              <option value="">Select a type…</option>
-              <option value="General Request">General Request</option>
-              <option value="Budget Request">Budget Request</option>
-              <option value="Access Request">Access Request</option>
-              <option value="Procurement">Procurement</option>
-              <option value="Other">Other</option>
-            </select>
-            {errors.type && (
-              <div className="field-error">— {errors.type}</div>
+              placeholder="e.g. Q3 Resource Allocation"
+              className={cn(errors.title && 'border-red-300 focus:border-red-400 focus:ring-red-200')}
+            />
+            {errors.title && (
+              <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.title}</p>
             )}
           </div>
-          <div className={styles.field}>
-            <label className="mono-label">Priority</label>
-            <select
-              name="priority"
-              className="field-input"
-              value={form.priority}
-              onChange={updateField}
-            >
-              <option value="Low">Low</option>
-              <option value="Medium">Medium</option>
-              <option value="High">High</option>
-            </select>
+
+          <div className="grid gap-4 sm:grid-cols-3">
+            <div>
+              <Label>Type</Label>
+              <Select
+                name="type"
+                value={form.type}
+                onChange={updateField}
+                className={cn(errors.type && 'border-red-300')}
+              >
+                <option value="">Select a type…</option>
+                <option value="General Request">General Request</option>
+                <option value="Budget Request">Budget Request</option>
+                <option value="Access Request">Access Request</option>
+                <option value="Procurement">Procurement</option>
+                <option value="Other">Other</option>
+              </Select>
+              {errors.type && (
+                <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.type}</p>
+              )}
+            </div>
+            <div>
+              <Label>Priority</Label>
+              <Select name="priority" value={form.priority} onChange={updateField}>
+                <option value="Low">Low</option>
+                <option value="Medium">Medium</option>
+                <option value="High">High</option>
+              </Select>
+            </div>
+            <div>
+              <Label>Amount (USD)</Label>
+              <Input
+                name="amount"
+                value={form.amount}
+                onChange={updateField}
+                placeholder="optional"
+              />
+            </div>
           </div>
-          <div className={styles.field}>
-            <label className="mono-label">Amount (USD)</label>
-            <input
-              name="amount"
-              className="field-input"
-              value={form.amount}
+
+          <div>
+            <Label>Description</Label>
+            <Textarea
+              name="description"
+              rows={4}
+              value={form.description}
               onChange={updateField}
-              placeholder="optional"
+              placeholder="Describe what you are requesting and why."
+              className={cn(errors.description && 'border-red-300')}
+            />
+            {errors.description && (
+              <p className="mt-1.5 text-xs text-red-600 font-mono">— {errors.description}</p>
+            )}
+          </div>
+
+          <div>
+            <Label>Justification</Label>
+            <Textarea
+              name="justification"
+              rows={3}
+              value={form.justification}
+              onChange={updateField}
+              placeholder="Optional supporting context for the reviewer."
             />
           </div>
-        </div>
+        </CardContent>
+      </Card>
 
-        <div className={styles.field}>
-          <label className="mono-label">Description</label>
-          <textarea
-            name="description"
-            className={`field-input ${errors.description ? 'error' : ''}`}
-            rows={4}
-            value={form.description}
-            onChange={updateField}
-            placeholder="Describe what you are requesting and why."
-          />
-          {errors.description && (
-            <div className="field-error">— {errors.description}</div>
-          )}
-        </div>
-
-        <div className={styles.field}>
-          <label className="mono-label">Justification</label>
-          <textarea
-            name="justification"
-            className="field-input"
-            rows={3}
-            value={form.justification}
-            onChange={updateField}
-            placeholder="Optional supporting context for the reviewer."
-          />
-        </div>
-
-        <div className={styles.actions}>
-          <button type="button" className="btn-secondary" onClick={goBack}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="btn-secondary"
-            onClick={handleSaveDraft}
-            disabled={pending}
-          >
-            {isEdit ? 'Save draft' : 'Save draft'}
-          </button>
-          {isEdit ? (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSubmit}
-              disabled={pending}
-            >
-              {submitMutation.isPending ? 'Submitting…' : 'Submit application'}
-            </button>
-          ) : (
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSaveDraft}
-              disabled={pending}
-            >
-              {createMutation.isPending ? 'Creating…' : 'Create application'}
-            </button>
-          )}
-        </div>
+      <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end max-w-2xl sticky bottom-0 bg-canvas/90 py-4 -mx-1 px-1 sm:static sm:bg-transparent sm:py-0">
+        <Button variant="secondary" onClick={goBack}>Cancel</Button>
+        <Button variant="secondary" onClick={handleSaveDraft} disabled={pending}>
+          Save draft
+        </Button>
+        {isEdit ? (
+          <Button onClick={handleSubmit} disabled={pending}>
+            {submitMutation.isPending ? 'Submitting…' : 'Submit application'}
+          </Button>
+        ) : (
+          <Button onClick={handleSaveDraft} disabled={pending}>
+            {createMutation.isPending ? 'Creating…' : 'Create application'}
+          </Button>
+        )}
       </div>
     </>
   );

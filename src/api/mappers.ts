@@ -96,7 +96,7 @@ export function mapActivityEvent(event: ApiActivityEvent): UiActivityEvent {
       label: 'added a comment',
       comment: event.comment ?? undefined,
       ts: event.createdAt,
-      dot: '#a8a8a8',
+      dot: '#8a9a8a',
     };
   }
 
@@ -120,17 +120,23 @@ export function mapActivityEvent(event: ApiActivityEvent): UiActivityEvent {
 }
 
 function statusDotForApi(status: string | null | undefined): string {
-  if (!status) return '#c4c4c4';
+  if (!status) return '#b8c4b8';
   const ui = mapStatus(status as ApiStatus);
   const dots: Record<UiStatus, string> = {
-    draft: '#c4c4c4',
-    submitted: '#8e8e8e',
-    under_review: '#5e5e5e',
-    approved: '#141414',
-    rejected: '#141414',
-    changes_requested: '#141414',
+    draft: '#b8c4b8',
+    submitted: '#c4a882',
+    under_review: '#5a7a6a',
+    approved: '#1a302a',
+    rejected: '#b85450',
+    changes_requested: '#c4a882',
   };
-  return dots[ui] ?? '#c4c4c4';
+  return dots[ui] ?? '#b8c4b8';
+}
+
+export function formatApplicationId(id: string): string {
+  const year = new Date().getFullYear();
+  const short = id.replace(/-/g, '').slice(0, 4).toUpperCase();
+  return `APP-${year}-${short}`;
 }
 
 export function initials(nameOrId: string): string {

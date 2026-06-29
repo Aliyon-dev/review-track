@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Check } from 'lucide-react';
 import { ApiError } from '@/api/client';
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+import { Input, Label } from '@/components/ui/field';
+import { cn } from '@/lib/cn';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/context/ToastContext';
-import styles from './LoginPage.module.css';
 
 const DEMO_EMAILS = {
   applicant: 'alex.morgan@company.com',
@@ -28,19 +32,7 @@ export function LoginPage() {
     }
   }, [isAuthenticated, user, navigate]);
 
-  if (isAuthenticated && user) {
-    return null;
-  }
-
-  const pickApplicant = () => {
-    setLoginRole('applicant');
-    setEmail(DEMO_EMAILS.applicant);
-  };
-
-  const pickReviewer = () => {
-    setLoginRole('reviewer');
-    setEmail(DEMO_EMAILS.reviewer);
-  };
+  if (isAuthenticated && user) return null;
 
   const handleSignIn = async () => {
     setLoading(true);
@@ -51,91 +43,85 @@ export function LoginPage() {
         replace: true,
       });
     } catch (err) {
-      const message =
-        err instanceof ApiError ? err.message : 'Sign in failed';
-      showToast('error', message);
+      showToast(
+        'error',
+        err instanceof ApiError ? err.message : 'Sign in failed',
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className={styles.page}>
-      <div className={styles.card}>
-        <div className={styles.brand}>
-          <div className={styles.brandIcon}>
-            <svg
-              width="15"
-              height="15"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.6"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-canvas via-white to-brand-muted/40 px-4 py-12">
+      <Card className="w-full max-w-[400px] p-8 shadow-md">
+        <div className="flex items-center gap-3 mb-8">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand text-white shadow-md">
+            <Check className="h-5 w-5" strokeWidth={2.5} />
           </div>
-          <span className={styles.brandName}>ApprovalFlow</span>
+          <span className="text-lg font-semibold tracking-tight text-brand">
+            ApprovalFlow
+          </span>
         </div>
 
-        <h1 className={styles.title}>Sign in</h1>
-        <p className={styles.subtitle}>
+        <h1 className="font-serif text-2xl font-semibold tracking-tight text-brand">
+          Sign in
+        </h1>
+        <p className="mt-1.5 text-sm text-brand/60">
           Choose a role to explore the workspace.
         </p>
 
-        <div className={styles.tabs}>
-          <button
-            type="button"
-            className={`${styles.tab} ${loginRole === 'applicant' ? styles.tabActive : ''}`}
-            onClick={pickApplicant}
-          >
-            Applicant
-          </button>
-          <button
-            type="button"
-            className={`${styles.tab} ${loginRole === 'reviewer' ? styles.tabActive : ''}`}
-            onClick={pickReviewer}
-          >
-            Reviewer
-          </button>
+        <div className="mt-6 flex gap-1 rounded-lg border border-brand/15 bg-canvas p-1">
+          {(['applicant', 'reviewer'] as const).map((role) => (
+            <button
+              key={role}
+              type="button"
+              onClick={() => {
+                setLoginRole(role);
+                setEmail(DEMO_EMAILS[role]);
+              }}
+              className={cn(
+                'flex-1 rounded-md py-2 text-sm font-medium transition-colors',
+                loginRole === role
+                  ? 'bg-brand-muted text-brand shadow-sm'
+                  : 'text-brand/50 hover:text-brand',
+              )}
+            >
+              {role === 'applicant' ? 'Applicant' : 'Reviewer'}
+            </button>
+          ))}
         </div>
 
-        <label className="mono-label" style={{ display: 'block', marginBottom: 7 }}>
-          Email
-        </label>
-        <input
-          type="email"
-          className="field-input"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          style={{ marginBottom: 18 }}
-        />
+        <div className="mt-6 space-y-4">
+          <div>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
+          <div>
+            <Label>Password</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+        </div>
 
-        <label className="mono-label" style={{ display: 'block', marginBottom: 7 }}>
-          Password
-        </label>
-        <input
-          type="password"
-          className="field-input"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          style={{ marginBottom: 28 }}
-        />
-
-        <button
-          type="button"
-          className={styles.signInBtn}
+        <Button
+          className="mt-6 w-full"
           onClick={handleSignIn}
           disabled={loading}
         >
           {loading ? 'Signing in…' : 'Sign in'}
-        </button>
-        <p className={styles.demoHint}>
+        </Button>
+        <p className="mt-5 text-center text-xs text-brand/40 font-mono">
           Demo environment — credentials from your API
         </p>
-      </div>
+      </Card>
     </div>
   );
 }
