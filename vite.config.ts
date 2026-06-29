@@ -5,7 +5,18 @@ import path from 'path';
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
-  const proxyTarget = env.VITE_API_PROXY_TARGET || 'http://localhost:8000';
+  const proxyTarget =
+    env.VITE_API_PROXY_TARGET ||
+    process.env.VITE_API_PROXY_TARGET ||
+    process.env.API_PROXY_TARGET ||
+    'http://localhost:8000';
+
+  const apiProxy = {
+    '/api': {
+      target: proxyTarget,
+      changeOrigin: true,
+    },
+  };
 
   return {
     plugins: [react(), tailwindcss()],
@@ -15,12 +26,7 @@ export default defineConfig(({ mode }) => {
       },
     },
     server: {
-      proxy: {
-        '/api': {
-          target: proxyTarget,
-          changeOrigin: true,
-        },
-      },
+      proxy: apiProxy,
     },
     preview: {
       host: '0.0.0.0',
@@ -28,6 +34,7 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       // Required on Render: vite preview blocks unknown Host headers by default
       allowedHosts: ['.onrender.com', 'localhost'],
+      proxy: apiProxy,
     },
   };
 });
