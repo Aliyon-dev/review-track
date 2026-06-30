@@ -210,7 +210,6 @@ Never commit `.env` files. They are listed in `.gitignore`.
 | `npm run build` | Typecheck and produce production build in `dist/` |
 | `npm run preview` | Serve the production build locally |
 | `npm run codegen` | Regenerate `src/api/schema.d.ts` from `openapi/api.json` |
-| `npm run verify:email` | Validate themed email template colors and generate HTML previews |
 | `npm run lint` | Run ESLint (requires `eslint.config.js` to be configured) |
 
 ---
@@ -378,9 +377,6 @@ npm run codegen
 
 This overwrites [`src/api/schema.d.ts`](src/api/schema.d.ts). The runtime client in `client.ts` may still need manual updates when new endpoints are added.
 
-> **Note:** Older root-level spec files (`api-1.json`, `api-1.2.json`) were removed. Sync changes into `openapi/api.json` instead.
-
----
 
 ## UI and design system
 
@@ -397,20 +393,6 @@ Design tokens are defined in [`src/index.css`](src/index.css) via Tailwind v4 `@
 **Fonts:** Inter (UI), Playfair Display (headings), JetBrains Mono (labels, dates). Loaded via Google Fonts in `index.html`.
 
 **Primitives** live under [`src/components/ui/`](src/components/ui/) — see [Project structure](#project-structure) for the full list. Status display uses `badge.tsx` (`StatusBadge` export); confirmations use `dialog.tsx`.
-
----
-
-## Email templates
-
-Status notification emails for the backend are maintained in [`email-templates/buildStatusEmail.ts`](email-templates/buildStatusEmail.ts). Colors match the web UI. Copy this file into your API project’s email module.
-
-Verify theme colors and generate HTML previews:
-
-```bash
-npm run verify:email
-```
-
-See [`email-templates/README.md`](email-templates/README.md) for badge color reference.
 
 ---
 
@@ -473,7 +455,7 @@ npm run build
 npm run preview
 ```
 
-Note: `preview` does not proxy `/api` by default. Use a full stack proxy or point `VITE_API_BASE_URL` at a running API for end-to-end testing.
+Note: `preview` does not proxy `/api` by default. Use a full stack proxy or point `VITE_API_BASE_URL` at a running API for end-to-end testing. If you have the backend running locally, set this value to localhost:8000
 
 ---
 
