@@ -133,7 +133,7 @@ The UI talks to that API over REST. The OpenAPI contract used for type generatio
 ### 1. Clone and install
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Aliyon-dev/review-track
 cd review-track
 npm install
 ```
