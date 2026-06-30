@@ -30,6 +30,7 @@ The UI talks to that API over REST. The OpenAPI contract used for type generatio
 
 - [What is in this repo](#what-is-in-this-repo)
 - [Features](#features)
+- [Screenshots](#screenshots)
 - [Tech stack](#tech-stack)
 - [Prerequisites](#prerequisites)
 - [Quick start](#quick-start)
@@ -73,6 +74,34 @@ The UI talks to that API over REST. The OpenAPI contract used for type generatio
 - Form submit guards, loading spinners, and 30s API timeout
 - Toast notifications for success and error feedback
 - Responsive layout with mobile sidebar
+
+---
+
+## Screenshots
+
+### Login
+
+![Login page](docs/screenshots/login.png)
+
+### Applicant dashboard
+
+![Applicant dashboard](docs/screenshots/applicant-dashboard.png)
+
+### Application form
+
+![Application form](docs/screenshots/application-form.png)
+
+### Application detail
+
+![Application detail with activity timeline](docs/screenshots/application-detail.png)
+
+### Reviewer queue
+
+![Reviewer queue](docs/screenshots/reviewer-queue.png)
+
+### Review actions
+
+![Approve / reject / request-changes dialog](docs/screenshots/review-actions.png)
 
 ---
 
